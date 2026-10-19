@@ -203,9 +203,10 @@ Return ONLY valid JSON matching this schema:
 
       const modelsToTry = [
         this.model,
-        'gemini-3.1-pro',
-        'gemini-2.5-pro',
+        'gemini-3.6-flash',
+        'gemini-3.5-flash',
         'gemini-3.8-flash',
+        'gemini-3.1-flash-lite',
       ].filter((m, idx, arr) => arr.indexOf(m) === idx);
 
       let lastError: Error | null = null;
