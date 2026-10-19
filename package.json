@@ -11,16 +11,23 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "clsx": "^2.1.1",
     "dexie": "^4.0.10",
     "dexie-react-hooks": "^1.1.7",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "recharts": "^3.10.1",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.31",
+    "tailwindcss": "^4.3.3",
     "typescript": "~5.6.2",
     "vite": "^6.0.3",
     "vitest": "^2.1.8"
