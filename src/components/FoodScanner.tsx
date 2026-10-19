@@ -37,7 +37,8 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
 }) => {
   const provider = getFoodAnalysisProvider(
     settings.aiProviderId,
-    settings.aiBackendEndpoint
+    settings.aiBackendEndpoint,
+    settings.geminiApiKey
   );
   const providerStatus = provider.getStatus();
 

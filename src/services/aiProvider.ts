@@ -87,6 +87,22 @@ export function validateFoodAnalysisResult(raw: unknown): FoodAnalysisResult {
 }
 
 /**
+ * Converts a Blob to a base64 string
+ */
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const res = reader.result as string;
+      const base64 = res.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
  * Default provider when no AI backend or credentials are configured.
  * Never fabricates or mocks AI results.
  */
@@ -112,8 +128,130 @@ export class UnconfiguredFoodAnalysisProvider implements FoodAnalysisProvider {
 }
 
 /**
- * Optional server-side proxy adapter for future official Gemini API integration.
- * Keeps API keys strictly on a backend proxy server (never in browser localStorage or frontend bundle).
+ * Direct Gemini API Provider (Calls Google Gemini directly from device via user-entered API key)
+ */
+export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
+  readonly id = 'direct_gemini';
+  readonly displayName = 'Google Gemini API (Direct)';
+  readonly description = 'Calls Google Gemini Vision directly using your own API key.';
+
+  private apiKey: string;
+  private status: AIProviderStatus;
+
+  constructor(apiKey?: string) {
+    this.apiKey = (apiKey || '').trim();
+    this.status = this.apiKey ? 'ready' : 'not_configured';
+  }
+
+  getStatus(): AIProviderStatus {
+    return this.status;
+  }
+
+  getStatusMessage(): string {
+    if (this.status === 'not_configured') {
+      return 'Gemini API Key is not configured. Enter your API key in Settings.';
+    }
+    if (this.status === 'processing') {
+      return 'Analyzing food image with Gemini AI...';
+    }
+    if (this.status === 'failed') {
+      return 'Last analysis request failed. Check your API key or internet connection.';
+    }
+    return 'Ready to analyze meals with Gemini AI.';
+  }
+
+  async analyzeImage(imageBlob: Blob): Promise<FoodAnalysisResult> {
+    if (!this.apiKey) {
+      this.status = 'not_configured';
+      throw new Error('Gemini API key is not configured.');
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      this.status = 'failed';
+      throw new Error('You are offline. AI analysis requires internet connection.');
+    }
+
+    this.status = 'processing';
+    try {
+      const base64Data = await blobToBase64(imageBlob);
+      const mimeType = imageBlob.type || 'image/jpeg';
+
+      const prompt = `Analyze this food image in detail. Identify the dish and estimate its weight and nutrition.
+Return ONLY valid JSON matching this schema:
+{
+  "mealName": "Name of dish (e.g. ข้าวมันไก่ต้ม, Grilled Salmon with Rice)",
+  "identifiedFoodItems": [
+    {
+      "name": "Item name",
+      "estimatedGrams": 150,
+      "estimatedCalories": 250,
+      "protein": 30,
+      "carbohydrates": 0,
+      "fat": 5
+    }
+  ],
+  "estimatedWeightGrams": 350,
+  "estimatedCalories": 550,
+  "protein": 35,
+  "carbohydrates": 65,
+  "fat": 15,
+  "uncertainties": ["e.g. Cooking oil amount is estimated"],
+  "assumptions": ["e.g. Assumed skinless chicken breast"]
+}`;
+
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`;
+      const payload = {
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          response_mime_type: 'application/json',
+          temperature: 0.2,
+        },
+      };
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(
+          errJson.error?.message || `Gemini API returned HTTP ${response.status}`
+        );
+      }
+
+      const resData = await response.json();
+      const rawText =
+        resData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+      const parsed = JSON.parse(rawText);
+
+      const validated = validateFoodAnalysisResult(parsed);
+      this.status = 'ready';
+      return validated;
+    } catch (err) {
+      this.status = 'failed';
+      throw err instanceof Error
+        ? err
+        : new Error('Failed to analyze food image with Gemini API.');
+    }
+  }
+}
+
+/**
+ * Server-side proxy adapter
  */
 export class BackendProxyFoodAnalysisProvider implements FoodAnalysisProvider {
   readonly id = 'backend_proxy';
@@ -135,7 +273,7 @@ export class BackendProxyFoodAnalysisProvider implements FoodAnalysisProvider {
 
   getStatusMessage(): string {
     if (this.status === 'not_configured') {
-      return 'Backend proxy URL is not set. Configure a server-side endpoint in Settings when you have a Gemini API key.';
+      return 'Backend proxy URL is not set. Configure a server-side endpoint in Settings.';
     }
     if (this.status === 'processing') {
       return 'Analyzing food image via configured server-side endpoint...';
@@ -188,8 +326,12 @@ export class BackendProxyFoodAnalysisProvider implements FoodAnalysisProvider {
 
 export function getFoodAnalysisProvider(
   providerId?: string,
-  backendEndpoint?: string
+  backendEndpoint?: string,
+  geminiApiKey?: string
 ): FoodAnalysisProvider {
+  if (providerId === 'direct_gemini' && geminiApiKey?.trim()) {
+    return new DirectGeminiFoodAnalysisProvider(geminiApiKey);
+  }
   if (providerId === 'backend_proxy' && backendEndpoint?.trim()) {
     return new BackendProxyFoodAnalysisProvider(backendEndpoint);
   }

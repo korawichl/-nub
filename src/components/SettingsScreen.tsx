@@ -76,8 +76,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [fatTargetG, setFatTargetG] = useState(String(goals.fatTargetG));
   const [carbsTargetG, setCarbsTargetG] = useState(String(goals.carbsTargetG));
 
-  // Optional AI Provider Config State (Server-side endpoint only, never API keys)
+  // Optional AI Provider Config State
   const [aiProviderId, setAiProviderId] = useState(settings.aiProviderId);
+  const [geminiApiKey, setGeminiApiKey] = useState(settings.geminiApiKey || '');
   const [aiEndpoint, setAiEndpoint] = useState(
     settings.aiBackendEndpoint || ''
   );
@@ -93,7 +94,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const provider = getFoodAnalysisProvider(
     settings.aiProviderId,
-    settings.aiBackendEndpoint
+    settings.aiBackendEndpoint,
+    settings.geminiApiKey
   );
 
   // Recalculate BMR, TDEE, and remaining Carbs from current form inputs
@@ -202,6 +204,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     e.preventDefault();
     await db.settings.update(settings.id, {
       aiProviderId,
+      geminiApiKey: geminiApiKey.trim() || undefined,
       aiBackendEndpoint: aiEndpoint.trim() || undefined,
       updatedAt: new Date().toISOString(),
     });
@@ -660,11 +663,30 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <option value="none">
                   Disabled / Local Manual Mode (No API Key Required)
                 </option>
+                <option value="direct_gemini">
+                  Google Gemini API (ใส่ API Key โดยตรง)
+                </option>
                 <option value="backend_proxy">
                   Server-Side Proxy Endpoint (Official API Adapter)
                 </option>
               </select>
             </div>
+
+            {aiProviderId === 'direct_gemini' && (
+              <div className="form-field">
+                <label className="field-label">Gemini API Key</label>
+                <input
+                  type="password"
+                  className="input-text"
+                  placeholder="AIzaSy..."
+                  value={geminiApiKey}
+                  onChange={(e) => setGeminiApiKey(e.target.value)}
+                />
+                <small className="field-hint">
+                  รับคีย์ฟรีได้จาก <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>Google AI Studio</a> (บันทึกในเครื่องคุณเท่านั้น)
+                </small>
+              </div>
+            )}
 
             {aiProviderId === 'backend_proxy' && (
               <div className="form-field">
