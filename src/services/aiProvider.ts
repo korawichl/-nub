@@ -17,6 +17,8 @@ export interface FoodAnalysisResult {
   protein: number;
   carbohydrates: number;
   fat: number;
+  sodiumMg?: number;
+  sugarG?: number;
   uncertainties: string[];
   assumptions: string[];
   requiresUserConfirmation: true;
@@ -29,6 +31,7 @@ export interface FoodAnalysisProvider {
   getStatus(): AIProviderStatus;
   getStatusMessage(): string;
   analyzeImage(imageBlob: Blob): Promise<FoodAnalysisResult>;
+  analyzeTextPrompt?(prompt: string): Promise<FoodAnalysisResult>;
 }
 
 /**
@@ -95,6 +98,14 @@ export function validateFoodAnalysisResult(raw: unknown): FoodAnalysisResult {
     protein: numField('protein'),
     carbohydrates: numField('carbohydrates'),
     fat: numField('fat'),
+    sodiumMg:
+      typeof obj.sodiumMg === 'number' && Number.isFinite(obj.sodiumMg)
+        ? Math.round(obj.sodiumMg)
+        : undefined,
+    sugarG:
+      typeof obj.sugarG === 'number' && Number.isFinite(obj.sugarG)
+        ? Math.round(Number(obj.sugarG) * 10) / 10
+        : undefined,
     uncertainties: toStringArray(obj.uncertainties),
     assumptions: toStringArray(obj.assumptions),
     requiresUserConfirmation: true,
@@ -367,6 +378,102 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
         ? err
         : new Error('Failed to analyze food image.');
     }
+  }
+
+  async analyzeTextPrompt(promptText: string): Promise<FoodAnalysisResult> {
+    if (!this.apiKey) {
+      this.status = 'not_configured';
+      throw new Error('API key is not configured.');
+    }
+    const cleanPrompt = (promptText || '').trim();
+    if (!cleanPrompt) {
+      throw new Error('Please enter a food description or meal name.');
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      this.status = 'failed';
+      throw new Error('You are offline. AI analysis requires internet connection.');
+    }
+
+    this.status = 'processing';
+    const modelsToTry = [
+      this.preferredModel,
+      'gemini-3.5-flash-lite',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.8-flash',
+      'gemini-pro-latest',
+    ].filter((m, idx, arr) => Boolean(m) && arr.indexOf(m) === idx);
+
+    const fullInstruction = `Analyze this food description written by the user: "${cleanPrompt}". Identify all dishes/beverages, estimate total serving weight in grams, total calories, macronutrients (protein, carbohydrates, fat), sodium in mg, and sugar in grams. Return ONLY a valid JSON object matching:
+{
+  "mealName": "Name of dish (e.g. ข้าวมันไก่ต้มพิเศษเนื้อน่อง)",
+  "identifiedFoodItems": [
+    { "name": "Item name", "estimatedGrams": 150, "estimatedCalories": 250, "protein": 25, "carbohydrates": 10, "fat": 8 }
+  ],
+  "estimatedWeightGrams": 350,
+  "estimatedCalories": 450,
+  "protein": 30,
+  "carbohydrates": 45,
+  "fat": 15,
+  "sodiumMg": 650,
+  "sugarG": 2,
+  "uncertainties": ["Portion estimated based on user description"],
+  "assumptions": ["Standard Thai restaurant serving"]
+}`;
+
+    const errors: string[] = [];
+    for (const modelName of modelsToTry) {
+      try {
+        const isGemma = modelName.startsWith('gemma-');
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.apiKey}`;
+        const payload = {
+          contents: [{ parts: [{ text: fullInstruction }] }],
+          generationConfig: isGemma
+            ? { temperature: 0.1 }
+            : { response_mime_type: 'application/json', temperature: 0.1 },
+        };
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(new Error('Timed out')), 18000);
+        let response: Response;
+        try {
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+
+        if (!response.ok) {
+          const errJson = await response.json().catch(() => ({}));
+          errors.push(`${modelName}: ${errJson.error?.message || response.status}`);
+          continue;
+        }
+
+        const resData = await response.json();
+        const parts: Array<{ text?: string; thought?: boolean }> =
+          resData.candidates?.[0]?.content?.parts || [];
+        const textPart =
+          parts.find((p) => typeof p.text === 'string' && !p.thought) ||
+          parts[parts.length - 1];
+        const rawText = textPart?.text || '';
+        if (!rawText) continue;
+
+        const parsed = parseJsonFromModelText(rawText);
+        const validated = validateFoodAnalysisResult(parsed);
+        this.status = 'ready';
+        return validated;
+      } catch (err) {
+        errors.push(`${modelName}: ${err instanceof Error ? err.message : String(err)}`);
+        continue;
+      }
+    }
+
+    this.status = 'failed';
+    throw new Error(`AI text analysis failed (${errors.join(' | ')}).`);
   }
 }
 

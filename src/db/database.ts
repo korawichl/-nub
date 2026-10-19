@@ -173,6 +173,8 @@ export async function addMealItemSnapshot(params: {
   protein: number;
   carbohydrates: number;
   fat: number;
+  sodiumMg?: number;
+  sugarG?: number;
   source: FoodCatalogItem['source'];
 }): Promise<MealItem> {
   const now = new Date().toISOString();
@@ -210,6 +212,8 @@ export async function addMealItemSnapshot(params: {
       protein: Math.round(params.protein * 100) / 100,
       carbohydrates: Math.round(params.carbohydrates * 100) / 100,
       fat: Math.round(params.fat * 100) / 100,
+      sodiumMg: typeof params.sodiumMg === 'number' ? Math.round(params.sodiumMg) : undefined,
+      sugarG: typeof params.sugarG === 'number' ? Math.round(params.sugarG * 10) / 10 : undefined,
       sourceSnapshot: params.source,
       createdAt: now,
       updatedAt: now,
@@ -250,6 +254,14 @@ export async function addCatalogFoodToMeal(
     grams
   );
 
+  const ratio = grams / 100;
+  const sodiumMg = catalogItem.sodiumMgPer100g !== undefined
+    ? Math.round(catalogItem.sodiumMgPer100g * ratio)
+    : undefined;
+  const sugarG = catalogItem.sugarGPer100g !== undefined
+    ? Math.round(catalogItem.sugarGPer100g * ratio * 10) / 10
+    : undefined;
+
   return addMealItemSnapshot({
     date,
     category,
@@ -260,6 +272,8 @@ export async function addCatalogFoodToMeal(
     protein: portion.protein,
     carbohydrates: portion.carbohydrates,
     fat: portion.fat,
+    sodiumMg,
+    sugarG,
     source: catalogItem.source,
   });
 }
@@ -276,6 +290,8 @@ export async function updateMealItemSnapshot(
       | 'protein'
       | 'carbohydrates'
       | 'fat'
+      | 'sodiumMg'
+      | 'sugarG'
       | 'category'
     >
   >

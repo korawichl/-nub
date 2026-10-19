@@ -1,16 +1,16 @@
 {
-  "name": "Nub — Personal Nutrition Tracker",
-  "short_name": "Nub Tracker",
-  "description": "Personal local-first nutrition, macro, and weight tracker PWA.",
+  "name": "Nubcal — Nutrition & Calorie Tracker",
+  "short_name": "Nubcal",
+  "description": "Local-first AI Nutrition, Macro & Calorie Tracker Dashboard",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#10b981",
+  "background_color": "#F6F7FB",
+  "theme_color": "#6258F5",
   "orientation": "portrait-primary",
   "icons": [
     {
       "src": "/icon.svg",
-      "sizes": "any",
+      "sizes": "512x512 any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }

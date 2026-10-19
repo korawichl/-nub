@@ -1,7 +1,8 @@
-const CACHE_NAME = 'nub-nutrition-cache-v1';
+const CACHE_NAME = 'nubcal-cache-v2';
 const APP_SHELL = [
   '/',
   '/index.html',
+  '/manifest.json',
   '/manifest.webmanifest',
   '/icon.svg',
 ];

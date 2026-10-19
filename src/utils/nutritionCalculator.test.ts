@@ -7,6 +7,8 @@ import {
   calculateMacros,
   calculateTDEE,
   calculateWeightTrend,
+  calculateStreak,
+  calculateEnergyBalance,
 } from './nutritionCalculator';
 
 describe('nutritionCalculator', () => {
@@ -147,6 +149,61 @@ describe('nutritionCalculator', () => {
       expect(trend.totalChangeKg).toBe(-1);
       expect(trend.remainingToTargetKg).toBe(7);
       expect(trend.progressTowardTargetPercent).toBe(12.5);
+    });
+  });
+
+  describe('calculateStreak', () => {
+    it('returns consecutive days when logged today and previous days', () => {
+      const dates = ['2026-10-17', '2026-10-18', '2026-10-19'];
+      expect(calculateStreak(dates, '2026-10-19')).toBe(3);
+    });
+
+    it('preserves streak if today is not logged yet but yesterday was logged', () => {
+      const dates = ['2026-10-17', '2026-10-18'];
+      expect(calculateStreak(dates, '2026-10-19')).toBe(2);
+    });
+
+    it('returns 0 if both today and yesterday have no logs', () => {
+      const dates = ['2026-10-15', '2026-10-16'];
+      expect(calculateStreak(dates, '2026-10-19')).toBe(0);
+    });
+
+    it('handles empty dates gracefully', () => {
+      expect(calculateStreak([], '2026-10-19')).toBe(0);
+    });
+  });
+
+  describe('calculateEnergyBalance', () => {
+    it('calculates deficit and estimated fat loss grams correctly', () => {
+      // Consumed 1800, TDEE 2200, Workout 300 => Total Exp = 2500 => Deficit = 700 kcal
+      // Fat loss = 700 / 7.7 = ~90.9g
+      const res = calculateEnergyBalance(1800, 2200, 300);
+      expect(res.totalExpenditure).toBe(2500);
+      expect(res.netDeficit).toBe(700);
+      expect(res.status).toBe('deficit');
+      expect(res.estimatedFatChangeGrams).toBe(90.9);
+    });
+
+    it('calculates surplus when consumed exceeds total expenditure', () => {
+      const res = calculateEnergyBalance(2800, 2000, 200);
+      expect(res.totalExpenditure).toBe(2200);
+      expect(res.netDeficit).toBe(-600);
+      expect(res.status).toBe('surplus');
+      expect(res.estimatedFatChangeGrams).toBe(77.9);
+    });
+  });
+
+  describe('sodium and sugar in calculateDailySummary', () => {
+    it('sums sodium and sugar accurately across items', () => {
+      const summary = calculateDailySummary(
+        [
+          { calories: 400, protein: 30, carbohydrates: 40, fat: 10, sodiumMg: 750, sugarG: 5.5 },
+          { calories: 300, protein: 20, carbohydrates: 30, fat: 8, sodiumMg: 600, sugarG: 8.2 },
+        ],
+        { calorieTarget: 2000, proteinTargetG: 150, carbsTargetG: 200, fatTargetG: 65 }
+      );
+      expect(summary.consumedSodiumMg).toBe(1350);
+      expect(summary.consumedSugarG).toBe(13.7);
     });
   });
 });

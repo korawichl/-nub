@@ -46,6 +46,8 @@ export interface DailySummaryInputItem {
   carbohydrates: number;
   fat: number;
   grams?: number;
+  sodiumMg?: number;
+  sugarG?: number;
 }
 
 export interface DailyTargetsInput {
@@ -53,6 +55,8 @@ export interface DailyTargetsInput {
   proteinTargetG: number;
   carbsTargetG: number;
   fatTargetG: number;
+  sodiumLimitMg?: number;
+  sugarLimitG?: number;
 }
 
 export interface DailySummaryResult {
@@ -69,6 +73,8 @@ export interface DailySummaryResult {
   consumedFat: number;
   remainingFat: number;
   fatProgressPercent: number;
+  consumedSodiumMg: number;
+  consumedSugarG: number;
   entryCount: number;
 }
 
@@ -257,6 +263,8 @@ export function calculateDailySummary(
   let pro = 0;
   let carb = 0;
   let fat = 0;
+  let sodium = 0;
+  let sugar = 0;
 
   for (const item of items) {
     assertNonNegativeFinite(item.calories, 'item.calories');
@@ -268,12 +276,20 @@ export function calculateDailySummary(
     pro += item.protein;
     carb += item.carbohydrates;
     fat += item.fat;
+    if (typeof item.sodiumMg === 'number' && Number.isFinite(item.sodiumMg)) {
+      sodium += Math.max(0, item.sodiumMg);
+    }
+    if (typeof item.sugarG === 'number' && Number.isFinite(item.sugarG)) {
+      sugar += Math.max(0, item.sugarG);
+    }
   }
 
   const consumedCalories = roundTo(cal, 2);
   const consumedProtein = roundTo(pro, 2);
   const consumedCarbs = roundTo(carb, 2);
   const consumedFat = roundTo(fat, 2);
+  const consumedSodiumMg = Math.round(sodium);
+  const consumedSugarG = roundTo(sugar, 1);
 
   const remainingCalories = roundTo(targets.calorieTarget - consumedCalories, 2);
   const remainingProtein = roundTo(targets.proteinTargetG - consumedProtein, 2);
@@ -297,6 +313,8 @@ export function calculateDailySummary(
     consumedFat,
     remainingFat,
     fatProgressPercent: calcPct(consumedFat, targets.fatTargetG),
+    consumedSodiumMg,
+    consumedSugarG,
     entryCount: items.length,
   };
 }
@@ -375,5 +393,86 @@ export function calculateWeightTrend(
     remainingToTargetKg,
     progressTowardTargetPercent,
     hasEnoughDataFor7DayAvg,
+  };
+}
+
+/**
+ * Calculates current consecutive logging streak in days based on recorded dates and reference date (Bangkok YYYY-MM-DD).
+ */
+export function calculateStreak(loggedDates: string[], referenceDate: string): number {
+  if (!loggedDates || loggedDates.length === 0 || !referenceDate) return 0;
+
+  const dateSet = new Set(loggedDates.filter(Boolean));
+  let streak = 0;
+
+  // Helper to shift YYYY-MM-DD by delta days
+  const shift = (base: string, deltaDays: number): string => {
+    const d = new Date(base + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + deltaDays);
+    return d.toISOString().slice(0, 10);
+  };
+
+  // Check if today has at least one logged item
+  let cursor = referenceDate;
+  if (!dateSet.has(cursor)) {
+    // If today is not logged yet, streak can still be maintained if yesterday was logged
+    const yesterday = shift(referenceDate, -1);
+    if (!dateSet.has(yesterday)) {
+      return 0;
+    }
+    cursor = yesterday;
+  }
+
+  // Count backwards day by day
+  while (dateSet.has(cursor)) {
+    streak += 1;
+    cursor = shift(cursor, -1);
+  }
+
+  return streak;
+}
+
+export interface EnergyBalanceResult {
+  tdee: number;
+  workoutBurn: number;
+  totalExpenditure: number;
+  consumedCalories: number;
+  netDeficit: number; // positive = deficit (fat burn), negative = surplus (gain)
+  estimatedFatChangeGrams: number;
+  status: 'deficit' | 'surplus' | 'maintenance';
+}
+
+/**
+ * Calculates net calorie deficit/surplus and estimated daily fat loss/gain in grams.
+ * 1 kg of adipose tissue ≈ 7,700 kcal (approx 7.7 kcal/g).
+ */
+export function calculateEnergyBalance(
+  consumedCalories: number,
+  tdee: number,
+  workoutBurn: number = 0
+): EnergyBalanceResult {
+  const safeConsumed = Math.max(0, consumedCalories || 0);
+  const safeTdee = Math.max(0, tdee || 0);
+  const safeWorkout = Math.max(0, workoutBurn || 0);
+
+  const totalExpenditure = roundTo(safeTdee + safeWorkout, 1);
+  const netDeficit = roundTo(totalExpenditure - safeConsumed, 1);
+  const estimatedFatChangeGrams = roundTo(Math.abs(netDeficit) / 7.7, 1);
+
+  let status: 'deficit' | 'surplus' | 'maintenance' = 'maintenance';
+  if (netDeficit > 50) {
+    status = 'deficit';
+  } else if (netDeficit < -50) {
+    status = 'surplus';
+  }
+
+  return {
+    tdee: safeTdee,
+    workoutBurn: safeWorkout,
+    totalExpenditure,
+    consumedCalories: safeConsumed,
+    netDeficit,
+    estimatedFatChangeGrams,
+    status,
   };
 }

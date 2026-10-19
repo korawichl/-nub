@@ -26,6 +26,12 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
     String(draft.carbohydrates || 0)
   );
   const [fat, setFat] = useState(String(draft.fat || 0));
+  const [sodiumMg, setSodiumMg] = useState(
+    draft.sodiumMg !== undefined ? String(draft.sodiumMg) : ''
+  );
+  const [sugarG, setSugarG] = useState(
+    draft.sugarG !== undefined ? String(draft.sugarG) : ''
+  );
   const [category, setCategory] = useState<MealCategory>(draft.category);
   const [saveToCatalog, setSaveToCatalog] = useState(Boolean(draft.saveToCatalog));
   const [explicitlyConfirmed, setExplicitlyConfirmed] = useState(
@@ -57,6 +63,8 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
       setProtein(scaleVal(protein));
       setCarbohydrates(scaleVal(carbohydrates));
       setFat(scaleVal(fat));
+      if (sodiumMg) setSodiumMg(scaleVal(sodiumMg));
+      if (sugarG) setSugarG(scaleVal(sugarG));
     }
   };
 
@@ -101,6 +109,9 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
       return;
     }
 
+    const na = sodiumMg.trim() ? parseFloat(sodiumMg) : undefined;
+    const sug = sugarG.trim() ? parseFloat(sugarG) : undefined;
+
     let catalogId: string | undefined;
 
     if (saveToCatalog) {
@@ -116,6 +127,8 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
         proteinPer100g: Math.round(pro * factor * 100) / 100,
         carbsPer100g: Math.round(carb * factor * 100) / 100,
         fatPer100g: Math.round(f * factor * 100) / 100,
+        sodiumMgPer100g: na !== undefined ? Math.round(na * factor) : undefined,
+        sugarGPer100g: sug !== undefined ? Math.round(sug * factor * 10) / 10 : undefined,
         source: draft.source === 'ai_confirmed' ? 'ai_confirmed' : 'user_custom',
         sourceLabel:
           draft.source === 'ai_confirmed'
@@ -138,6 +151,8 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
       protein: pro,
       carbohydrates: carb,
       fat: f,
+      sodiumMg: na,
+      sugarG: sug,
       source: draft.source,
     });
 
@@ -331,6 +346,40 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
                 value={fat}
                 onChange={(e) => setFat(e.target.value)}
                 required
+              />
+            </div>
+          </div>
+
+          <div className="form-grid-2">
+            <div className="form-field">
+              <label htmlFor="confirm-sodium" className="field-label">
+                Sodium (mg) <span style={{ color: 'var(--text-muted)' }}>(Optional)</span>
+              </label>
+              <input
+                id="confirm-sodium"
+                type="number"
+                step="any"
+                min="0"
+                className="input-text"
+                placeholder="e.g. 650"
+                value={sodiumMg}
+                onChange={(e) => setSodiumMg(e.target.value)}
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="confirm-sugar" className="field-label">
+                Sugar (g) <span style={{ color: 'var(--text-muted)' }}>(Optional)</span>
+              </label>
+              <input
+                id="confirm-sugar"
+                type="number"
+                step="any"
+                min="0"
+                className="input-text"
+                placeholder="e.g. 5"
+                value={sugarG}
+                onChange={(e) => setSugarG(e.target.value)}
               />
             </div>
           </div>

@@ -122,6 +122,8 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
         protein: result.protein,
         carbohydrates: result.carbohydrates,
         fat: result.fat,
+        sodiumMg: result.sodiumMg,
+        sugarG: result.sugarG,
         category: mealCategory,
         source: 'ai_confirmed',
         uncertainties: result.uncertainties,

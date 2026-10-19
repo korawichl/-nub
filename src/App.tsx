@@ -11,6 +11,7 @@ import {
 } from './db/seedData';
 import type { ConfirmMealDraft, MealCategory, MealItem } from './types';
 import { getBangkokDateString } from './utils/date';
+import { calculateStreak } from './utils/nutritionCalculator';
 import { TodayDashboard } from './components/TodayDashboard';
 import { FoodScanner } from './components/FoodScanner';
 import { ConfirmMeal } from './components/ConfirmMeal';
@@ -96,6 +97,13 @@ export const App: React.FC = () => {
   const frequentFoods = [...catalog].sort(
     (a, b) => (b.usageCount || 0) - (a.usageCount || 0)
   );
+
+  const realStreak = React.useMemo(() => {
+    return calculateStreak(
+      allMealItems.map((m) => m.date),
+      todayBangkok
+    );
+  }, [allMealItems, todayBangkok]);
 
   const handleOpenConfirmMeal = (draft: ConfirmMealDraft) => {
     setConfirmDraft(draft);
@@ -259,7 +267,7 @@ export const App: React.FC = () => {
                   className="w-10 h-10 rounded-full object-cover ring-2 ring-[#EFEDFF]"
                 />
                 <span className="absolute -top-1 -right-1 bg-[#6258F5] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ring-2 ring-white flex items-center gap-0.5">
-                  🔥 12
+                  🔥 {realStreak}
                 </span>
               </div>
               <div className="flex flex-col min-w-0">
@@ -330,6 +338,7 @@ export const App: React.FC = () => {
                 goals={goals}
                 profile={profile}
                 frequentFoods={frequentFoods}
+                settings={settings}
                 onNavigateToDiary={handleNavigateToDiary}
                 onNavigateToScanner={() => setActiveTab('scanner')}
                 onOpenConfirmMeal={handleOpenConfirmMeal}

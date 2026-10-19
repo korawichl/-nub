@@ -8,7 +8,8 @@ export type FoodSourceType =
   | 'thai_reference'
   | 'user_custom'
   | 'user_estimated'
-  | 'ai_confirmed';
+  | 'ai_confirmed'
+  | 'barcode';
 export type AIProviderStatus = 'not_configured' | 'ready' | 'processing' | 'failed';
 
 export interface PortionPreset {
@@ -65,6 +66,9 @@ export interface FoodCatalogItem {
   proteinPer100g: number;
   carbsPer100g: number;
   fatPer100g: number;
+  sodiumMgPer100g?: number;
+  sugarGPer100g?: number;
+  barcode?: string;
   source: FoodSourceType;
   sourceLabel: string;
   usageCount: number;
@@ -96,6 +100,8 @@ export interface MealItem {
   protein: number;
   carbohydrates: number;
   fat: number;
+  sodiumMg?: number;
+  sugarG?: number;
   sourceSnapshot: FoodSourceType;
   createdAt: string;
   updatedAt: string;
@@ -153,6 +159,8 @@ export interface ConfirmMealDraft {
   protein: number;
   carbohydrates: number;
   fat: number;
+  sodiumMg?: number;
+  sugarG?: number;
   category: MealCategory;
   source: FoodSourceType;
   uncertainties?: string[];

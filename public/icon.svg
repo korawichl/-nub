@@ -1,7 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="112" fill="#0f172a" />
-  <circle cx="256" cy="256" r="168" fill="none" stroke="#1e293b" stroke-width="36" />
-  <circle cx="256" cy="256" r="168" fill="none" stroke="#10b981" stroke-width="36" stroke-dasharray="780 1055" stroke-linecap="round" transform="rotate(-90 256 256)" />
-  <path d="M236 168c28-32 76-28 92 8 16 36-8 88-56 128-48-40-72-92-56-128 12-28 48-36 72-8z" fill="#10b981" opacity="0.2" />
-  <text x="256" y="278" font-family="system-ui, -apple-system, sans-serif" font-size="112" font-weight="800" fill="#f8fafc" text-anchor="middle">N</text>
+  <defs>
+    <linearGradient id="pwa-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6258F5" />
+      <stop offset="100%" stop-color="#4C41D9" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#pwa-bg)" />
+  <g transform="translate(106, 106) scale(10.7)" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M14 2L2 9L14 16L26 9L14 2Z" />
+    <path d="M2 14L14 21L26 14" />
+    <path d="M2 19L14 26L26 19" stroke="#EFEDFF" />
+  </g>
 </svg>

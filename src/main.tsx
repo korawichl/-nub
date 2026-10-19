@@ -4,7 +4,7 @@ import App from './App';
 import './index.css';
 
 // Register PWA Service Worker for offline static asset caching and fallback
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch((err) => {
       console.warn('Service worker registration failed:', err);

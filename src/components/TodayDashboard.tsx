@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import type {
   ActivityLog,
+  AppSettings,
   ConfirmMealDraft,
   FoodCatalogItem,
   MealCategory,
@@ -22,7 +23,14 @@ import {
   getBangkokDateString,
   shiftDateString,
 } from '../utils/date';
-import { calculateDailySummary } from '../utils/nutritionCalculator';
+import {
+  calculateDailySummary,
+  calculateStreak,
+  calculateEnergyBalance,
+} from '../utils/nutritionCalculator';
+import { getFoodAnalysisProvider } from '../services/aiProvider';
+import { BarcodeScannerModal } from './BarcodeScannerModal';
+import { ShareSummaryModal } from './ShareSummaryModal';
 import {
   addActivityLogEntry,
   addCatalogFoodToMeal,
@@ -48,6 +56,12 @@ import {
   Wheat,
   Sparkles,
   BookOpen,
+  Mic,
+  MicOff,
+  ScanBarcode,
+  Share2,
+  AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 
 interface TodayDashboardProps {
@@ -57,6 +71,7 @@ interface TodayDashboardProps {
   goals: NutritionGoals;
   profile: UserProfile;
   frequentFoods: FoodCatalogItem[];
+  settings?: AppSettings;
   onNavigateToDiary: (category?: MealCategory) => void;
   onNavigateToScanner: () => void;
   onOpenConfirmMeal: (draft: ConfirmMealDraft) => void;
@@ -71,6 +86,7 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
   goals,
   profile,
   frequentFoods,
+  settings,
   onNavigateToDiary,
   onNavigateToScanner,
   onOpenConfirmMeal,
@@ -85,14 +101,45 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
     fatTargetG: goals.fatTargetG,
   });
 
+  // Dynamic Streak calculation from real logged meal dates
+  const streakDays = useMemo(() => {
+    return calculateStreak(
+      allMealItems.map((m) => m.date),
+      todayBangkok
+    );
+  }, [allMealItems, todayBangkok]);
+
   // Water calculations
   const consumedWaterMl = todayActivities
     .filter((a) => a.activityType === 'water')
     .reduce((sum, a) => sum + (a.waterMl || a.durationMinutes || 0), 0);
   const waterTargetMl = goals.waterTargetMl || 3000;
 
-  // Workouts logged today
+  // Workouts logged today & Energy Balance (Deficit / Surplus calculation)
   const workoutLogs = todayActivities.filter((a) => a.activityType !== 'water');
+  const totalWorkoutBurn = workoutLogs.reduce(
+    (sum, w) => sum + (w.estimatedCaloriesBurned || 0),
+    0
+  );
+  const tdee = goals.estimatedTdee || goals.calorieTarget || 2000;
+  const energyBalance = calculateEnergyBalance(
+    summary.consumedCalories,
+    tdee,
+    totalWorkoutBurn
+  );
+
+  // Modals state
+  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Natural Language / Voice AI Prompt State
+  const [textPrompt, setTextPrompt] = useState('');
+  const [aiPromptLoading, setAiPromptLoading] = useState(false);
+  const [aiPromptError, setAiPromptError] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+
+  // Custom Water amount input
+  const [customWaterMl, setCustomWaterMl] = useState('300');
 
   // Search & Filter state for the Manage Food Log table
   const [searchQuery, setSearchQuery] = useState('');
@@ -191,8 +238,107 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
     document.body.removeChild(link);
   };
 
+  // Voice Speech Recognition Handler
+  const toggleSpeechRecognition = () => {
+    const SpeechRec =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRec) {
+      alert(
+        'Speech recognition is not supported in this browser. Please type your meal or use Chrome/Safari.'
+      );
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRec();
+      recognition.lang = 'th-TH'; // Primary Thai with multilingual support
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      setIsListening(true);
+      recognition.onresult = (e: any) => {
+        const transcript = e.results?.[0]?.[0]?.transcript || '';
+        if (transcript) {
+          setTextPrompt((prev) => (prev ? `${prev} ${transcript}` : transcript));
+        }
+        setIsListening(false);
+      };
+      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => setIsListening(false);
+      recognition.start();
+    } catch {
+      setIsListening(false);
+    }
+  };
+
+  // Natural Language AI Food Logging
+  const handleRunTextAiPrompt = async (overridePrompt?: string) => {
+    const query = (overridePrompt || textPrompt).trim();
+    if (!query) return;
+
+    setAiPromptLoading(true);
+    setAiPromptError(null);
+
+    try {
+      const provider = getFoodAnalysisProvider(
+        settings?.aiProviderId || 'gemini-direct',
+        settings?.aiBackendEndpoint,
+        settings?.geminiApiKey,
+        settings?.geminiModel,
+        settings?.groqApiKey
+      );
+
+      if (!provider.analyzeTextPrompt) {
+        throw new Error('AI text prompt analysis is not supported by the configured provider.');
+      }
+
+      const result = await provider.analyzeTextPrompt(query);
+      setTextPrompt('');
+
+      const ingredientsText =
+        result.identifiedFoodItems && result.identifiedFoodItems.length > 0
+          ? result.identifiedFoodItems
+              .map((i) => `${i.name} (~${i.estimatedGrams}g)`)
+              .join(', ')
+          : query;
+
+      onOpenConfirmMeal({
+        foodName: result.mealName,
+        ingredients: ingredientsText,
+        servingGrams: result.estimatedWeightGrams,
+        calories: result.estimatedCalories,
+        protein: result.protein,
+        carbohydrates: result.carbohydrates,
+        fat: result.fat,
+        sodiumMg: result.sodiumMg,
+        sugarG: result.sugarG,
+        category: 'lunch',
+        source: 'ai_confirmed',
+        uncertainties: result.uncertainties,
+        assumptions: result.assumptions,
+        requiresExplicitConfirmation: true,
+      });
+    } catch (err) {
+      setAiPromptError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to analyze text prompt with AI.'
+      );
+    } finally {
+      setAiPromptLoading(false);
+    }
+  };
+
   // Quick Action Handlers
   const handleQuickWater = async (amountMl: number) => {
+    if (amountMl <= 0) return;
     await addActivityLogEntry({
       date: todayBangkok,
       activityType: 'water',
@@ -258,6 +404,150 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* =========================================================================
+          0. TOP UTILITY BAR: STREAK BADGE & QUICK ACCESS MODAL BUTTONS
+         ========================================================================= */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-[#E9EAF2] rounded-[22px] p-4 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-[#EFEDFF] text-[#6258F5] px-3.5 py-1.5 rounded-full text-xs font-bold border border-[#6258F5]/20">
+            <Flame className="w-4 h-4 fill-[#6258F5]" />
+            <span>{streakDays} Day Logging Streak</span>
+          </div>
+          <span className="text-xs text-[#858BA0] hidden md:inline">
+            Keep recording daily to sustain healthy habits!
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Barcode Scanner Modal Trigger */}
+          <button
+            type="button"
+            onClick={() => setIsBarcodeModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#6258F5] bg-[#F0F4FF] hover:bg-[#EFEDFF] rounded-full border border-[#6258F5]/20 transition-all hover:scale-[1.02] shadow-2xs"
+          >
+            <ScanBarcode className="w-4 h-4 stroke-[2.2]" />
+            <span>Scan Barcode</span>
+          </button>
+
+          {/* Share Daily Summary Card Modal Trigger */}
+          <button
+            type="button"
+            onClick={() => setIsShareModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-[#6258F5] hover:bg-[#756BFF] rounded-full transition-all hover:scale-[1.02] shadow-sm shadow-[#6258F5]/25"
+          >
+            <Share2 className="w-4 h-4" />
+            <span>Share Report</span>
+          </button>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          0.5 NATURAL LANGUAGE & VOICE AI FOOD LOGGING BAR
+         ========================================================================= */}
+      <div className="bg-white border border-[#6258F5]/25 rounded-[24px] p-4 sm:p-5 shadow-xs flex flex-col gap-3 relative overflow-hidden">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-8 h-8 rounded-xl bg-[#EFEDFF] text-[#6258F5] flex items-center justify-center">
+              <Sparkles className="w-4 h-4" />
+            </span>
+            <div>
+              <h3 className="text-sm font-bold text-[#20243A]">AI Quick Food Logger</h3>
+              <p className="text-[11px] text-[#858BA0]">
+                พิมพ์หรือกดไมค์พูดเมนูอาหาร ระบบคำนวณสารอาหารและแคลอรี่ให้อัตโนมัติ
+              </p>
+            </div>
+          </div>
+          {isListening && (
+            <span className="text-[11px] font-bold text-[#EB6478] bg-[#FFF0F2] px-3 py-1 rounded-full animate-pulse flex items-center gap-1.5 border border-[#EB6478]/30">
+              <span className="w-2 h-2 rounded-full bg-[#EB6478]"></span>
+              กำลังฟังเสียงพูดของคุณ...
+            </span>
+          )}
+        </div>
+
+        {/* Input & Voice Controls */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleRunTextAiPrompt();
+          }}
+          className="flex flex-col sm:flex-row gap-2"
+        >
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={textPrompt}
+              onChange={(e) => setTextPrompt(e.target.value)}
+              placeholder="เช่น 'ข้าวกะเพราหมูสับไข่ดาว + ชานมหวานน้อย' หรือ 'อกไก่ต้ม 200g กับข้าวกล้อง'..."
+              disabled={aiPromptLoading}
+              className="w-full pl-4 pr-11 py-2.5 text-xs bg-[#F6F7FB] border border-[#E9EAF2] rounded-xl text-[#20243A] placeholder:text-[#858BA0] focus:outline-none focus:border-[#6258F5] focus:bg-white transition-all"
+            />
+            {/* Voice Mic Button inside input */}
+            <button
+              type="button"
+              onClick={toggleSpeechRecognition}
+              title={isListening ? 'Stop recording' : 'Speak meal in Thai / English'}
+              className={`absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
+                isListening
+                  ? 'bg-[#EB6478] text-white animate-bounce'
+                  : 'text-[#858BA0] hover:text-[#6258F5] hover:bg-[#EFEDFF]'
+              }`}
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+          </div>
+
+          <button
+            type="submit"
+            disabled={aiPromptLoading || !textPrompt.trim()}
+            className="px-5 py-2.5 text-xs font-bold text-white bg-[#6258F5] hover:bg-[#756BFF] disabled:opacity-50 rounded-xl transition-all shadow-sm shadow-[#6258F5]/25 flex items-center justify-center gap-2 shrink-0"
+          >
+            {aiPromptLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>AI กำลังวิเคราะห์...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>AI บันทึกทันที</span>
+              </>
+            )}
+          </button>
+        </form>
+
+        {/* Quick Suggestion Chips */}
+        <div className="flex items-center gap-1.5 flex-wrap pt-1">
+          <span className="text-[11px] text-[#858BA0]">ตัวอย่างคลิกไว:</span>
+          {[
+            'ข้าวกะเพราหมูสับไข่ดาว',
+            'ส้มตำไทย + อกไก่ย่าง',
+            'เวย์โปรตีน 1 scoop + กล้วยหอม',
+            'ชาเขียวมัทฉะลาเต้หวาน 25%',
+          ].map((sample) => (
+            <button
+              key={sample}
+              type="button"
+              onClick={() => {
+                setTextPrompt(sample);
+                handleRunTextAiPrompt(sample);
+              }}
+              className="text-[11px] font-medium text-[#20243A] bg-[#F0F4FF] hover:bg-[#EFEDFF] hover:text-[#6258F5] px-2.5 py-1 rounded-lg border border-[#E9EAF2] transition-colors"
+            >
+              {sample}
+            </button>
+          ))}
+        </div>
+
+        {/* AI Error Alert */}
+        {aiPromptError && (
+          <div className="p-3 bg-[#FFF0F2] border border-[#EB6478]/30 rounded-xl flex items-start gap-2 text-xs text-[#EB6478]">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{aiPromptError}</span>
+          </div>
+        )}
+      </div>
+
       {/* =========================================================================
           1. TOP SECTION: QUICK STATS (6 ROUNDED PILL CARDS IN A ROW)
          ========================================================================= */}
@@ -370,6 +660,150 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
               </span>
             </div>
             <div className="text-[9px] sm:text-[10px] text-[#858BA0] font-medium">Hydration</div>
+          </div>
+        </div>
+
+        {/* 1.5 NUTRITION HEALTH & ENERGY BALANCE (DEFICIT, SODIUM, SUGAR) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mt-1">
+          {/* Deficit / Surplus Card */}
+          <div className="p-4 bg-white border border-[#E9EAF2] rounded-[22px] shadow-xs flex flex-col justify-between gap-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#20243A] flex items-center gap-1.5">
+                <Flame className="w-4 h-4 text-[#6258F5]" />
+                <span>Net Calorie Deficit / Surplus</span>
+              </span>
+              <span
+                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                  energyBalance.status === 'deficit'
+                    ? 'bg-[#E8F8F2] text-[#27AE82]'
+                    : energyBalance.status === 'surplus'
+                    ? 'bg-[#FEF7E8] text-[#D9961A]'
+                    : 'bg-[#EFEDFF] text-[#6258F5]'
+                }`}
+              >
+                {energyBalance.status === 'deficit'
+                  ? 'Deficit Mode'
+                  : energyBalance.status === 'surplus'
+                  ? 'Surplus Mode'
+                  : 'Balanced'}
+              </span>
+            </div>
+
+            <div className="flex items-baseline justify-between">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-extrabold text-[#20243A]">
+                  {energyBalance.netDeficit > 0 ? '-' : '+'}
+                  {Math.round(Math.abs(energyBalance.netDeficit))}
+                </span>
+                <span className="text-xs text-[#858BA0] font-medium">kcal balance</span>
+              </div>
+              <span className="text-xs font-semibold text-[#6258F5]">
+                {energyBalance.status === 'deficit'
+                  ? `🔥 ~${energyBalance.estimatedFatChangeGrams}g fat burn`
+                  : energyBalance.status === 'surplus'
+                  ? `~${energyBalance.estimatedFatChangeGrams}g energy reserve`
+                  : 'Maintenance'}
+              </span>
+            </div>
+
+            <div className="text-[11px] text-[#858BA0] flex items-center justify-between pt-1.5 border-t border-[#E9EAF2]">
+              <span>TDEE: {energyBalance.tdee} + Workouts: {energyBalance.workoutBurn} kcal</span>
+              <span className="font-semibold text-[#20243A]">
+                Total: {energyBalance.totalExpenditure} kcal
+              </span>
+            </div>
+          </div>
+
+          {/* Sodium Monitor Card */}
+          <div className="p-4 bg-white border border-[#E9EAF2] rounded-[22px] shadow-xs flex flex-col justify-between gap-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#20243A] flex items-center gap-1.5">
+                <span>🧂</span>
+                <span>Sodium (โซเดียม)</span>
+              </span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  summary.consumedSodiumMg > 2000
+                    ? 'bg-[#FFF0F2] text-[#EB6478] border border-[#EB6478]/30'
+                    : 'bg-[#E8F8F2] text-[#27AE82]'
+                }`}
+              >
+                {summary.consumedSodiumMg > 2000 ? '⚠️ เกินเกณฑ์ WHO' : '✅ ปกติ'}
+              </span>
+            </div>
+
+            <div className="flex items-baseline justify-between">
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-extrabold text-[#20243A]">
+                  {summary.consumedSodiumMg.toLocaleString()}
+                </span>
+                <span className="text-xs text-[#858BA0] font-medium">/ 2,000 mg</span>
+              </div>
+              <span
+                className={`text-xs font-bold ${
+                  summary.consumedSodiumMg > 2000 ? 'text-[#EB6478]' : 'text-[#27AE82]'
+                }`}
+              >
+                {Math.round((summary.consumedSodiumMg / 2000) * 100)}%
+              </span>
+            </div>
+
+            <div className="w-full bg-[#F0F4FF] h-1.5 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  summary.consumedSodiumMg > 2000 ? 'bg-[#EB6478]' : 'bg-[#6258F5]'
+                }`}
+                style={{
+                  width: `${Math.min(100, Math.round((summary.consumedSodiumMg / 2000) * 100))}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Sugar Monitor Card */}
+          <div className="p-4 bg-white border border-[#E9EAF2] rounded-[22px] shadow-xs flex flex-col justify-between gap-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#20243A] flex items-center gap-1.5">
+                <span>🍬</span>
+                <span>Sugar (น้ำตาล)</span>
+              </span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  summary.consumedSugarG > 24
+                    ? 'bg-[#FFF0F2] text-[#EB6478] border border-[#EB6478]/30'
+                    : 'bg-[#E8F8F2] text-[#27AE82]'
+                }`}
+              >
+                {summary.consumedSugarG > 24 ? '⚠️ เกินเกณฑ์ 6 ช้อนชา' : '✅ ปกติ'}
+              </span>
+            </div>
+
+            <div className="flex items-baseline justify-between">
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-extrabold text-[#20243A]">
+                  {summary.consumedSugarG}
+                </span>
+                <span className="text-xs text-[#858BA0] font-medium">/ 24 g (WHO)</span>
+              </div>
+              <span
+                className={`text-xs font-bold ${
+                  summary.consumedSugarG > 24 ? 'text-[#EB6478]' : 'text-[#27AE82]'
+                }`}
+              >
+                {Math.round((summary.consumedSugarG / 24) * 100)}%
+              </span>
+            </div>
+
+            <div className="w-full bg-[#F0F4FF] h-1.5 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  summary.consumedSugarG > 24 ? 'bg-[#EB6478]' : 'bg-[#27AE82]'
+                }`}
+                style={{
+                  width: `${Math.min(100, Math.round((summary.consumedSugarG / 24) * 100))}%`,
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -522,35 +956,79 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
               </span>
             </div>
 
-            {/* Row 2: Water Quick Add */}
-            <div className="flex items-center justify-between py-3 group -mx-2 px-2 rounded-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-[#756BFF] text-white flex items-center justify-center shrink-0">
-                  <Droplets className="w-4 h-4" />
+            {/* Row 2: Water Quick Add & Custom Cups */}
+            <div className="flex flex-col py-3 group -mx-2 px-2 rounded-xl gap-2.5">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#756BFF] text-white flex items-center justify-center shrink-0">
+                    <Droplets className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-[#20243A]">
+                      Hydration Log
+                    </span>
+                    <span className="text-[11px] text-[#858BA0]">
+                      {consumedWaterMl.toLocaleString()} / {waterTargetMl.toLocaleString()} ml ({Math.round((consumedWaterMl / waterTargetMl) * 100)}%)
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold text-[#20243A]">
-                    Hydration Log
-                  </span>
-                  <span className="text-[11px] text-[#858BA0]">
-                    {consumedWaterMl} / {waterTargetMl} ml
-                  </span>
+                <div className="flex items-center gap-1 flex-wrap justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickWater(250)}
+                    className="px-2 py-1 text-[10px] font-semibold text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] rounded-full transition-colors"
+                  >
+                    +250ml
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickWater(500)}
+                    className="px-2 py-1 text-[10px] font-semibold text-white bg-[#6258F5] hover:bg-[#756BFF] rounded-full shadow-2xs transition-colors"
+                  >
+                    +500ml
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickWater(750)}
+                    className="px-2 py-1 text-[10px] font-semibold text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] rounded-full transition-colors"
+                  >
+                    +750ml
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickWater(1500)}
+                    className="px-2 py-1 text-[10px] font-semibold text-[#756BFF] bg-[#F0F4FF] hover:bg-[#EFEDFF] rounded-full transition-colors"
+                  >
+                    +1.5L
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+
+              {/* Custom ml input with quick add */}
+              <div className="flex items-center gap-1.5 pl-12">
+                <div className="relative flex-1 max-w-[140px]">
+                  <input
+                    type="number"
+                    min="10"
+                    step="50"
+                    value={customWaterMl}
+                    onChange={(e) => setCustomWaterMl(e.target.value)}
+                    placeholder="Custom ml"
+                    className="w-full px-2.5 py-1 text-xs bg-[#F6F7FB] border border-[#E9EAF2] rounded-lg text-[#20243A] focus:outline-none focus:border-[#6258F5]"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#858BA0]">ml</span>
+                </div>
                 <button
                   type="button"
-                  onClick={() => handleQuickWater(250)}
-                  className="px-2 py-1 text-[11px] font-semibold text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] rounded-full transition-colors"
+                  onClick={() => {
+                    const amt = parseInt(customWaterMl, 10);
+                    if (amt > 0) {
+                      handleQuickWater(amt);
+                    }
+                  }}
+                  className="px-3 py-1 text-xs font-semibold text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] rounded-lg transition-colors"
                 >
-                  +250ml
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickWater(500)}
-                  className="px-2 py-1 text-[11px] font-semibold text-white bg-[#6258F5] hover:bg-[#756BFF] rounded-full shadow-2xs transition-colors"
-                >
-                  +500ml
+                  + Add
                 </button>
               </div>
             </div>
@@ -976,6 +1454,36 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Barcode Scanner Modal */}
+      <BarcodeScannerModal
+        isOpen={isBarcodeModalOpen}
+        onClose={() => setIsBarcodeModalOpen(false)}
+        onProductFound={onOpenConfirmMeal}
+      />
+
+      {/* Share Daily Summary Card Modal */}
+      <ShareSummaryModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        date={todayBangkok}
+        consumedCalories={summary.consumedCalories}
+        targetCalories={goals.calorieTarget}
+        remainingCalories={summary.remainingCalories}
+        protein={summary.consumedProtein}
+        carbs={summary.consumedCarbs}
+        fat={summary.consumedFat}
+        proteinTarget={goals.proteinTargetG}
+        sodiumMg={summary.consumedSodiumMg}
+        sugarG={summary.consumedSugarG}
+        waterMl={consumedWaterMl}
+        waterTargetMl={waterTargetMl}
+        streakDays={streakDays}
+        netDeficit={energyBalance.netDeficit}
+        energyStatus={energyBalance.status}
+        fatChangeG={energyBalance.estimatedFatChangeGrams}
+        userName={profile.name || 'User'}
+      />
     </div>
   );
 };
