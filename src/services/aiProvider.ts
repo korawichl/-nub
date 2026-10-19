@@ -216,9 +216,9 @@ export class UnconfiguredFoodAnalysisProvider implements FoodAnalysisProvider {
  */
 export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
   readonly id = 'direct_gemini';
-  readonly displayName = 'Google AI Free Vision (Auto-Failover)';
+  readonly displayName = 'Google AI Vision (Pro & Flash Auto-Failover)';
   readonly description =
-    'Automatically routes across verified free vision models (gemini-3.6-flash, gemini-3.5-flash, gemini-3.5-flash-lite, gemma-4-26b-a4b-it) so you never get stuck on High Demand.';
+    'Supports Gemini Pro & Flash Vision models with automatic failover (gemini-3.5-flash-lite, gemini-3.6-flash, gemini-3.5-flash, gemini-pro-latest, gemma-4-26b-a4b-it) so photo scanning always succeeds.';
 
   private apiKey: string;
   private preferredModel: string;
@@ -226,14 +226,13 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
 
   constructor(apiKey?: string, preferredModel?: string) {
     this.apiKey = (apiKey || '').trim();
-    // Default to ultra-fast gemini-3.5-flash (~300ms latency)
-    const rawModel = (preferredModel || 'gemini-3.5-flash').trim();
+    const rawModel = (preferredModel || 'gemini-3.5-flash-lite').trim();
+    // Map deprecated 2.5 models to fast working vision model while preserving Pro or 3.x choices
     this.preferredModel =
-      rawModel === 'gemini-3.8-flash' ||
-      rawModel === 'gemini-3.1-pro' ||
-      rawModel === 'gemini-2.5-pro' ||
-      rawModel === 'gemini-3.6-flash'
-        ? 'gemini-3.5-flash'
+      rawModel === 'gemini-2.5-flash'
+        ? 'gemini-3.5-flash-lite'
+        : rawModel === 'gemini-2.5-pro'
+        ? 'gemini-pro-latest'
         : rawModel;
     this.status = this.apiKey ? 'ready' : 'not_configured';
   }
@@ -244,15 +243,15 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
 
   getStatusMessage(): string {
     if (this.status === 'not_configured') {
-      return 'Google AI Studio API Key is not configured. Enter your free key in Settings.';
+      return 'Google AI Studio API Key is not configured. Enter your key in Settings.';
     }
     if (this.status === 'processing') {
-      return `Analyzing food image with ${this.preferredModel} (Turbo Vision active)...`;
+      return `Analyzing food image with ${this.preferredModel} (Auto-Failover active)...`;
     }
     if (this.status === 'failed') {
       return 'Last analysis request failed. Check your API key or internet connection.';
     }
-    return `Ready (${this.preferredModel} · Ultra-Fast Vision).`;
+    return `Ready (${this.preferredModel} + Multi-Model Pro/Flash Auto-Failover).`;
   }
 
   async analyzeImage(imageBlob: Blob): Promise<FoodAnalysisResult> {
@@ -270,13 +269,17 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
     try {
       const { base64, mimeType } = await compressImageBlobToBase64(imageBlob);
 
-      // Verified working ultra-fast vision models in latency priority order
+      // Try user's preferred model first (e.g. Gemini Pro or Flash), then cascade through verified working vision models
       const modelsToTry = [
-        'gemini-3.5-flash',
+        this.preferredModel,
         'gemini-3.5-flash-lite',
         'gemini-3.6-flash',
-        'gemini-2.5-flash',
+        'gemini-3.5-flash',
+        'gemini-3.8-flash',
+        'gemini-pro-latest',
+        'gemini-3.1-pro-preview',
         'gemma-4-26b-a4b-it',
+        'gemma-4-31b-it',
       ].filter((m, idx, arr) => Boolean(m) && arr.indexOf(m) === idx);
 
       const errors: string[] = [];
@@ -306,28 +309,39 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
           };
 
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 7000);
+          const timeoutId = setTimeout(
+            () => controller.abort(new Error('Request timed out after 28s')),
+            28000
+          );
 
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            signal: controller.signal,
-          });
-
-          clearTimeout(timeoutId);
+          let response: Response;
+          try {
+            response = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+              signal: controller.signal,
+            });
+          } finally {
+            clearTimeout(timeoutId);
+          }
 
           if (!response.ok) {
             const errJson = await response.json().catch(() => ({}));
             const errMsg = errJson.error?.message || `HTTP ${response.status}`;
             errors.push(`${modelName}: ${errMsg}`);
-            // Automatically continue to next fast model
+            // Automatically continue to next model on 429/503/400/etc.
             continue;
           }
 
           const resData = await response.json();
-          const rawText =
-            resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const parts: Array<{ text?: string; thought?: boolean }> =
+            resData.candidates?.[0]?.content?.parts || [];
+          const textPart =
+            parts.find((p) => typeof p.text === 'string' && !p.thought) ||
+            parts[parts.length - 1];
+          const rawText = textPart?.text || '';
+
           if (!rawText) {
             errors.push(`${modelName}: Empty response`);
             continue;
@@ -345,7 +359,7 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
       }
 
       throw new Error(
-        `All free vision models failed or were busy (${errors.join(' | ')}).`
+        `All vision models failed or were busy (${errors.join(' | ')}).`
       );
     } catch (err) {
       this.status = 'failed';

@@ -649,8 +649,9 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
                                 ? 'var(--color-primary)'
                                 : 'var(--border-subtle)',
                               background: isSelected
-                                ? 'rgba(16, 185, 129, 0.14)'
+                                ? '#EFEDFF'
                                 : 'var(--bg-input)',
+                              color: isSelected ? '#6258F5' : 'var(--text-primary)',
                             }}
                             onClick={() =>
                               setPortionGramsMap((prev) => ({

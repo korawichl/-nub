@@ -171,15 +171,15 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({
             y1={targetY}
             x2={width - padX}
             y2={targetY}
-            stroke="var(--color-primary)"
+            stroke="#27AE82"
             strokeDasharray="5 5"
             strokeWidth="1.5"
-            opacity="0.7"
+            opacity="0.85"
           />
           <text
             x={width - padX - 4}
             y={targetY - 6}
-            fill="var(--color-primary)"
+            fill="#27AE82"
             fontSize="11"
             textAnchor="end"
           >
@@ -190,7 +190,7 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({
           <path
             d={linePath}
             fill="none"
-            stroke="var(--color-accent)"
+            stroke="#6258F5"
             strokeWidth="2.5"
           />
 
@@ -199,7 +199,7 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({
             <path
               d={avgPath}
               fill="none"
-              stroke="#f59e0b"
+              stroke="#F2B544"
               strokeWidth="2.5"
               strokeDasharray="3 3"
             />
@@ -212,13 +212,13 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({
                 cx={toX(i)}
                 cy={toY(p.weightKg)}
                 r="4"
-                fill="var(--color-accent)"
+                fill="#6258F5"
               />
               <text
                 x={toX(i)}
                 y={toY(p.weightKg) - 8}
                 fontSize="10"
-                fill="var(--text-secondary)"
+                fill="#858BA0"
                 textAnchor="middle"
               >
                 {p.weightKg}
@@ -230,18 +230,18 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({
           <span className="legend-item">
             <span
               className="legend-dot"
-              style={{ background: 'var(--color-accent)' }}
+              style={{ background: '#6258F5' }}
             />
             Logged Weight (kg)
           </span>
           <span className="legend-item">
-            <span className="legend-dot" style={{ background: '#f59e0b' }} />
+            <span className="legend-dot" style={{ background: '#F2B544' }} />
             7-Day Rolling Average
           </span>
           <span className="legend-item">
             <span
               className="legend-dot"
-              style={{ background: 'var(--color-primary)' }}
+              style={{ background: '#27AE82' }}
             />
             Target ({profile.targetWeightKg} kg)
           </span>

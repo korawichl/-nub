@@ -81,10 +81,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [aiProviderId, setAiProviderId] = useState(settings.aiProviderId);
   const [geminiApiKey, setGeminiApiKey] = useState(settings.geminiApiKey || '');
   const [geminiModel, setGeminiModel] = useState(
-    settings.geminiModel === 'gemini-3.8-flash' ||
-      settings.geminiModel === 'gemini-3.1-pro' ||
-      !settings.geminiModel
-      ? 'gemini-3.6-flash'
+    !settings.geminiModel || settings.geminiModel === 'gemini-2.5-flash'
+      ? 'gemini-3.5-flash-lite'
       : settings.geminiModel
   );
   const [groqApiKey, setGroqApiKey] = useState(settings.groqApiKey || '');
@@ -221,7 +219,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     });
     setStatusBanner({
       type: 'success',
-      text: 'AI Vision configuration saved (Multi-Model Free Failover active).',
+      text: 'AI Vision configuration saved (Pro & Flash Auto-Failover active).',
     });
   };
 
@@ -298,7 +296,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <header className="card">
         <h1 className="screen-title">Budget, Targets & System Settings</h1>
         <p className="screen-subtitle">
-          Customize your 3-Mode UI Theme, Mifflin–St Jeor macro budget, free AI Vision models, and backups.
+          Customize your UI Theme, Mifflin–St Jeor macro budget, Gemini Pro/Flash AI Vision models, and backups.
         </p>
       </header>
 
@@ -362,7 +360,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <section className="card">
         <div className="section-header">
           <h2 className="section-title">
-            <Cpu size={18} /> Free AI Vision Configuration (Multi-Model Failover)
+            <Cpu size={18} /> AI Vision Configuration (Gemini Pro & Flash Auto-Failover)
           </h2>
           <span
             className={`badge ${
@@ -390,7 +388,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   Disabled / Local Manual Mode (No API Key Required)
                 </option>
                 <option value="direct_gemini">
-                  Google AI Studio Free Vision (Auto-Failover 4 โมเดลฟรี)
+                  Google AI Studio Vision (Pro & Flash Auto-Failover)
                 </option>
                 <option value="groq_free">
                   Groq Cloud Free Vision (Llama 4 Scout 17B Vision ฟรี)
@@ -404,20 +402,32 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             {aiProviderId === 'direct_gemini' && (
               <>
                 <div className="form-field">
-                  <label className="field-label">Primary Free Vision Model</label>
+                  <label className="field-label">Preferred Vision Model (Pro / Flash)</label>
                   <select
                     className="input-select"
                     value={geminiModel}
                     onChange={(e) => setGeminiModel(e.target.value)}
                   >
+                    <option value="gemini-3.5-flash-lite">
+                      Gemini 3.5 Flash Lite (แนะนำ: เร็วที่สุด ~2 วินาที & โควตาว่างเสมอ)
+                    </option>
+                    <option value="gemini-pro-latest">
+                      Gemini Pro Latest (Pro Model + สลับ Flash อัตโนมัติหากโควตาเต็ม)
+                    </option>
+                    <option value="gemini-3.1-pro-preview">
+                      Gemini 3.1 Pro Preview (Pro Reasoning + Auto-Failover)
+                    </option>
+                    <option value="gemini-4-argon">
+                      Gemini 4 Argon (Flagship Pro + Auto-Failover)
+                    </option>
                     <option value="gemini-3.6-flash">
-                      Gemini 3.6 Flash (เสถียรที่สุด + สลับสำรองอัตโนมัติ)
+                      Gemini 3.6 Flash (แม่นยำสูง + สลับสำรองอัตโนมัติ)
                     </option>
                     <option value="gemini-3.5-flash">
-                      Gemini 3.5 Flash (เร็วและแม่นยำ)
+                      Gemini 3.5 Flash (สมดุลความเร็วและความแม่นยำ)
                     </option>
-                    <option value="gemini-3.5-flash-lite">
-                      Gemini 3.5 Flash Lite (เบาและโควตาว่างเสมอ)
+                    <option value="gemini-3.8-flash">
+                      Gemini 3.8 Flash (รุ่นล่าสุด + Auto-Failover)
                     </option>
                     <option value="gemma-4-26b-a4b-it">
                       Gemma 4 26B Vision (Open-Weights Multimodal ฟรี)
@@ -435,7 +445,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     onChange={(e) => setGeminiApiKey(e.target.value)}
                   />
                   <small className="field-hint">
-                    ระบบจะบีบอัดรูปอัตโนมัติและสลับโมเดลสำรอง (`3.6-flash` → `3.5-flash` → `3.5-flash-lite` → `gemma-4-26b`) ให้ทันทีหากโมเดลใดคิวเต็ม
+                    เลือกได้ทั้งตระกูล Pro และ Flash ระบบจะลองโมเดลที่คุณเลือกก่อน และหากคิวเต็มจะสลับไปโมเดลที่พร้อมใช้งาน (`3.5-flash-lite` / `3.6-flash` / `gemma-4-26b`) ให้ทันทีโดยไม่ล่ม
                   </small>
                 </div>
               </>
