@@ -136,10 +136,12 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
   readonly description = 'Calls Google Gemini Vision directly using your own API key.';
 
   private apiKey: string;
+  private model: string;
   private status: AIProviderStatus;
 
-  constructor(apiKey?: string) {
+  constructor(apiKey?: string, model?: string) {
     this.apiKey = (apiKey || '').trim();
+    this.model = (model || 'gemini-3.8-flash').trim();
     this.status = this.apiKey ? 'ready' : 'not_configured';
   }
 
@@ -152,12 +154,12 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
       return 'Gemini API Key is not configured. Enter your API key in Settings.';
     }
     if (this.status === 'processing') {
-      return 'Analyzing food image with Gemini AI...';
+      return `Analyzing food image with ${this.model}...`;
     }
     if (this.status === 'failed') {
-      return 'Last analysis request failed. Check your API key or internet connection.';
+      return 'Last analysis request failed. Check your API key or try another model.';
     }
-    return 'Ready to analyze meals with Gemini AI.';
+    return `Ready to analyze meals with Gemini AI (${this.model}).`;
   }
 
   async analyzeImage(imageBlob: Blob): Promise<FoodAnalysisResult> {
@@ -179,7 +181,7 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
       const prompt = `Analyze this food image in detail. Identify the dish and estimate its weight and nutrition.
 Return ONLY valid JSON matching this schema:
 {
-  "mealName": "Name of dish (e.g. ข้าวมันไก่ต้ม, Grilled Salmon with Rice)",
+  "mealName": "Name of dish (e.g. เกาเหลาเนื้อตุ๋น, ข้าวมันไก่ต้ม, Grilled Salmon with Rice)",
   "identifiedFoodItems": [
     {
       "name": "Item name",
@@ -195,52 +197,86 @@ Return ONLY valid JSON matching this schema:
   "protein": 35,
   "carbohydrates": 65,
   "fat": 15,
-  "uncertainties": ["e.g. Cooking oil amount is estimated"],
-  "assumptions": ["e.g. Assumed skinless chicken breast"]
+  "uncertainties": ["e.g. Soup oil amount is estimated"],
+  "assumptions": ["e.g. Assumed beef shank and meatballs"]
 }`;
 
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${this.apiKey}`;
-      const payload = {
-        contents: [
-          {
-            parts: [
-              { text: prompt },
+      const modelsToTry = [
+        this.model,
+        'gemini-3.1-pro',
+        'gemini-2.5-pro',
+        'gemini-3.8-flash',
+      ].filter((m, idx, arr) => arr.indexOf(m) === idx);
+
+      let lastError: Error | null = null;
+      for (const modelName of modelsToTry) {
+        try {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.apiKey}`;
+          const payload = {
+            contents: [
               {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Data,
-                },
+                parts: [
+                  { text: prompt },
+                  {
+                    inline_data: {
+                      mime_type: mimeType,
+                      data: base64Data,
+                    },
+                  },
+                ],
               },
             ],
-          },
-        ],
-        generationConfig: {
-          response_mime_type: 'application/json',
-          temperature: 0.2,
-        },
-      };
+            generationConfig: {
+              response_mime_type: 'application/json',
+              temperature: 0.2,
+            },
+          };
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
 
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        throw new Error(
-          errJson.error?.message || `Gemini API returned HTTP ${response.status}`
-        );
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            const errMsg = errJson.error?.message || `HTTP ${response.status}`;
+            // If high demand or overloaded, try next model in fallback list
+            if (
+              errMsg.toLowerCase().includes('high demand') ||
+              errMsg.toLowerCase().includes('overloaded') ||
+              response.status === 503 ||
+              response.status === 429
+            ) {
+              lastError = new Error(`${modelName}: ${errMsg}`);
+              continue;
+            }
+            throw new Error(errMsg);
+          }
+
+          const resData = await response.json();
+          const rawText =
+            resData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+          const parsed = JSON.parse(rawText);
+
+          const validated = validateFoodAnalysisResult(parsed);
+          this.status = 'ready';
+          return validated;
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          // If error is about high demand or model not available, try next fallback
+          if (
+            lastError.message.toLowerCase().includes('high demand') ||
+            lastError.message.toLowerCase().includes('overloaded') ||
+            lastError.message.toLowerCase().includes('503')
+          ) {
+            continue;
+          }
+          throw lastError;
+        }
       }
 
-      const resData = await response.json();
-      const rawText =
-        resData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-      const parsed = JSON.parse(rawText);
-
-      const validated = validateFoodAnalysisResult(parsed);
-      this.status = 'ready';
-      return validated;
+      throw lastError || new Error('All models were temporarily overloaded. Please try again.');
     } catch (err) {
       this.status = 'failed';
       throw err instanceof Error
@@ -327,10 +363,11 @@ export class BackendProxyFoodAnalysisProvider implements FoodAnalysisProvider {
 export function getFoodAnalysisProvider(
   providerId?: string,
   backendEndpoint?: string,
-  geminiApiKey?: string
+  geminiApiKey?: string,
+  geminiModel?: string
 ): FoodAnalysisProvider {
   if (providerId === 'direct_gemini' && geminiApiKey?.trim()) {
-    return new DirectGeminiFoodAnalysisProvider(geminiApiKey);
+    return new DirectGeminiFoodAnalysisProvider(geminiApiKey, geminiModel);
   }
   if (providerId === 'backend_proxy' && backendEndpoint?.trim()) {
     return new BackendProxyFoodAnalysisProvider(backendEndpoint);

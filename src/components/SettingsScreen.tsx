@@ -79,6 +79,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   // Optional AI Provider Config State
   const [aiProviderId, setAiProviderId] = useState(settings.aiProviderId);
   const [geminiApiKey, setGeminiApiKey] = useState(settings.geminiApiKey || '');
+  const [geminiModel, setGeminiModel] = useState(
+    settings.geminiModel || 'gemini-3.8-flash'
+  );
   const [aiEndpoint, setAiEndpoint] = useState(
     settings.aiBackendEndpoint || ''
   );
@@ -95,7 +98,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const provider = getFoodAnalysisProvider(
     settings.aiProviderId,
     settings.aiBackendEndpoint,
-    settings.geminiApiKey
+    settings.geminiApiKey,
+    settings.geminiModel
   );
 
   // Recalculate BMR, TDEE, and remaining Carbs from current form inputs
@@ -204,6 +208,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     e.preventDefault();
     await db.settings.update(settings.id, {
       aiProviderId,
+      geminiModel,
       geminiApiKey: geminiApiKey.trim() || undefined,
       aiBackendEndpoint: aiEndpoint.trim() || undefined,
       updatedAt: new Date().toISOString(),
@@ -673,19 +678,34 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </div>
 
             {aiProviderId === 'direct_gemini' && (
-              <div className="form-field">
-                <label className="field-label">Gemini API Key</label>
-                <input
-                  type="password"
-                  className="input-text"
-                  placeholder="AIzaSy..."
-                  value={geminiApiKey}
-                  onChange={(e) => setGeminiApiKey(e.target.value)}
-                />
-                <small className="field-hint">
-                  รับคีย์ฟรีได้จาก <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>Google AI Studio</a> (บันทึกในเครื่องคุณเท่านั้น)
-                </small>
-              </div>
+              <>
+                <div className="form-field">
+                  <label className="field-label">Gemini Model (โมเดล)</label>
+                  <select
+                    className="input-select"
+                    value={geminiModel}
+                    onChange={(e) => setGeminiModel(e.target.value)}
+                  >
+                    <option value="gemini-3.8-flash">Gemini 3.8 Flash (แนะนำ - รวดเร็ว)</option>
+                    <option value="gemini-3.1-pro">Gemini 3.1 Pro (ฉลาดและแม่นยำสูง)</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro (เสถียร)</option>
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label className="field-label">Gemini API Key</label>
+                  <input
+                    type="password"
+                    className="input-text"
+                    placeholder="AIzaSy..."
+                    value={geminiApiKey}
+                    onChange={(e) => setGeminiApiKey(e.target.value)}
+                  />
+                  <small className="field-hint">
+                    รับคีย์ฟรีได้จาก <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>Google AI Studio</a> (บันทึกในเครื่องคุณเท่านั้น)
+                  </small>
+                </div>
+              </>
             )}
 
             {aiProviderId === 'backend_proxy' && (

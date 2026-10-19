@@ -137,6 +137,7 @@ export interface AppSettings {
   theme: ThemeMode;
   timezone: string;
   aiProviderId: string; // 'none' | 'direct_gemini' | 'backend_proxy'
+  geminiModel?: string; // 'gemini-3.8-flash' | 'gemini-3.1-pro' | 'gemini-2.5-pro'
   geminiApiKey?: string;
   aiBackendEndpoint?: string;
   updatedAt: string;
