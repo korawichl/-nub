@@ -272,51 +272,51 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3.5">
           {/* Card 1: Remaining Calories */}
-          <div className="relative flex flex-col items-center justify-between p-4 bg-white border border-[#EEEEEE] rounded-[22px] min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
-            <div className="w-11 h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
-              <Flame className="w-5 h-5 text-amber-600 stroke-[2.2]" />
+          <div className="relative flex flex-col items-center justify-between p-3 sm:p-4 bg-white border border-[#EEEEEE] rounded-[18px] sm:rounded-[22px] min-h-[118px] sm:min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
+              <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 stroke-[2.2]" />
             </div>
-            <div className="flex flex-col items-center mt-2">
-              <span className="text-xl font-bold tracking-tight text-[#171717]">
+            <div className="flex flex-col items-center mt-1.5 sm:mt-2">
+              <span className="text-lg sm:text-xl font-bold tracking-tight text-[#171717]">
                 {Math.round(summary.remainingCalories).toLocaleString()}
               </span>
-              <span className="text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
+              <span className="text-[10px] sm:text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
                 Remaining kcal
               </span>
             </div>
-            <div className="text-[10px] text-neutral-400 font-medium">Budget Balance</div>
+            <div className="text-[9px] sm:text-[10px] text-neutral-400 font-medium">Budget Balance</div>
           </div>
 
           {/* Card 2: Consumed Calories */}
-          <div className="relative flex flex-col items-center justify-between p-4 bg-white border border-[#EEEEEE] rounded-[22px] min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
-            <div className="w-11 h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
-              <Utensils className="w-5 h-5 text-neutral-800 stroke-[2.2]" />
+          <div className="relative flex flex-col items-center justify-between p-3 sm:p-4 bg-white border border-[#EEEEEE] rounded-[18px] sm:rounded-[22px] min-h-[118px] sm:min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
+              <Utensils className="w-4 h-4 sm:w-5 sm:h-5 text-neutral-800 stroke-[2.2]" />
             </div>
-            <div className="flex flex-col items-center mt-2">
-              <span className="text-xl font-bold tracking-tight text-[#171717]">
+            <div className="flex flex-col items-center mt-1.5 sm:mt-2">
+              <span className="text-lg sm:text-xl font-bold tracking-tight text-[#171717]">
                 {Math.round(summary.consumedCalories).toLocaleString()}
               </span>
-              <span className="text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
+              <span className="text-[10px] sm:text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
                 Consumed kcal
               </span>
             </div>
-            <div className="text-[10px] text-neutral-400 font-medium">
+            <div className="text-[9px] sm:text-[10px] text-neutral-400 font-medium">
               {Math.round((summary.consumedCalories / goals.calorieTarget) * 100)}% of goal
             </div>
           </div>
 
           {/* Card 3: Calorie Target / Active Burn (Highlighted Black Circular Icon with Arrow) */}
-          <div className="relative flex flex-col items-center justify-between p-4 bg-white border border-[#EEEEEE] rounded-[22px] min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
-            <div className="w-11 h-11 rounded-full bg-[#111111] text-white flex items-center justify-center shadow-xs transition-transform group-hover:scale-105">
-              <Scale className="w-5 h-5 stroke-[2.2]" />
+          <div className="relative flex flex-col items-center justify-between p-3 sm:p-4 bg-white border border-[#EEEEEE] rounded-[18px] sm:rounded-[22px] min-h-[118px] sm:min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#111111] text-white flex items-center justify-center shadow-xs transition-transform group-hover:scale-105">
+              <Scale className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
             </div>
-            <div className="flex flex-col items-center mt-2">
-              <span className="text-xl font-bold tracking-tight text-[#171717]">
+            <div className="flex flex-col items-center mt-1.5 sm:mt-2">
+              <span className="text-lg sm:text-xl font-bold tracking-tight text-[#171717]">
                 {goals.calorieTarget.toLocaleString()}
               </span>
-              <span className="text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
+              <span className="text-[10px] sm:text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
                 Daily Target kcal
               </span>
             </div>
@@ -326,51 +326,51 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
           </div>
 
           {/* Card 4: Protein */}
-          <div className="relative flex flex-col items-center justify-between p-4 bg-white border border-[#EEEEEE] rounded-[22px] min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
-            <div className="w-11 h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
-              <Dumbbell className="w-5 h-5 text-blue-600 stroke-[2.2]" />
+          <div className="relative flex flex-col items-center justify-between p-3 sm:p-4 bg-white border border-[#EEEEEE] rounded-[18px] sm:rounded-[22px] min-h-[118px] sm:min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
+              <Dumbbell className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 stroke-[2.2]" />
             </div>
-            <div className="flex flex-col items-center mt-2">
-              <span className="text-xl font-bold tracking-tight text-[#171717]">
+            <div className="flex flex-col items-center mt-1.5 sm:mt-2">
+              <span className="text-lg sm:text-xl font-bold tracking-tight text-[#171717]">
                 {Math.round(summary.consumedProtein)}g
               </span>
-              <span className="text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
+              <span className="text-[10px] sm:text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
                 Protein / {goals.proteinTargetG}g
               </span>
             </div>
-            <div className="text-[10px] text-neutral-400 font-medium">Muscle Builder</div>
+            <div className="text-[9px] sm:text-[10px] text-neutral-400 font-medium">Muscle Builder</div>
           </div>
 
           {/* Card 5: Carbs & Fat */}
-          <div className="relative flex flex-col items-center justify-between p-4 bg-white border border-[#EEEEEE] rounded-[22px] min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
-            <div className="w-11 h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
-              <Wheat className="w-5 h-5 text-amber-700 stroke-[2.2]" />
+          <div className="relative flex flex-col items-center justify-between p-3 sm:p-4 bg-white border border-[#EEEEEE] rounded-[18px] sm:rounded-[22px] min-h-[118px] sm:min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
+              <Wheat className="w-4 h-4 sm:w-5 sm:h-5 text-amber-700 stroke-[2.2]" />
             </div>
-            <div className="flex flex-col items-center mt-2">
-              <span className="text-xl font-bold tracking-tight text-[#171717]">
+            <div className="flex flex-col items-center mt-1.5 sm:mt-2">
+              <span className="text-lg sm:text-xl font-bold tracking-tight text-[#171717]">
                 {Math.round(summary.consumedCarbs)}g / {Math.round(summary.consumedFat)}g
               </span>
-              <span className="text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
+              <span className="text-[10px] sm:text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
                 Carbs & Fat
               </span>
             </div>
-            <div className="text-[10px] text-neutral-400 font-medium">Daily Energy</div>
+            <div className="text-[9px] sm:text-[10px] text-neutral-400 font-medium">Daily Energy</div>
           </div>
 
           {/* Card 6: Water Intake */}
-          <div className="relative flex flex-col items-center justify-between p-4 bg-white border border-[#EEEEEE] rounded-[22px] min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
-            <div className="w-11 h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
-              <Droplets className="w-5 h-5 text-cyan-600 stroke-[2.2]" />
+          <div className="relative flex flex-col items-center justify-between p-3 sm:p-4 bg-white border border-[#EEEEEE] rounded-[18px] sm:rounded-[22px] min-h-[118px] sm:min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
+              <Droplets className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-600 stroke-[2.2]" />
             </div>
-            <div className="flex flex-col items-center mt-2">
-              <span className="text-xl font-bold tracking-tight text-[#171717]">
+            <div className="flex flex-col items-center mt-1.5 sm:mt-2">
+              <span className="text-lg sm:text-xl font-bold tracking-tight text-[#171717]">
                 {(consumedWaterMl / 1000).toFixed(1)}L
               </span>
-              <span className="text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
+              <span className="text-[10px] sm:text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
                 Water / {(waterTargetMl / 1000).toFixed(1)}L
               </span>
             </div>
-            <div className="text-[10px] text-neutral-400 font-medium">Hydration</div>
+            <div className="text-[9px] sm:text-[10px] text-neutral-400 font-medium">Hydration</div>
           </div>
         </div>
       </div>
@@ -748,8 +748,72 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
           </div>
         )}
 
-        {/* Table Container */}
-        <div className="overflow-x-auto -mx-6 px-6">
+        {/* Mobile Food List Cards (Shown strictly on mobile < 640px) */}
+        <div className="block sm:hidden flex flex-col divide-y divide-[#F5F5F5] -mx-2">
+          {filteredItems.length === 0 ? (
+            <div className="py-8 text-center text-xs text-neutral-400">
+              No food entries recorded yet for today. Use AI Scan or Quick Add above!
+            </div>
+          ) : (
+            filteredItems.map((item) => (
+              <div key={item.id} className="py-3 px-2 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-8 h-8 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-700 shrink-0">
+                    <Utensils className="w-4 h-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-bold text-[#171717] truncate">
+                        {item.foodNameSnapshot}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${
+                          item.category === 'breakfast'
+                            ? 'bg-amber-50 text-amber-700'
+                            : item.category === 'lunch'
+                            ? 'bg-blue-50 text-blue-700'
+                            : item.category === 'dinner'
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'bg-emerald-50 text-emerald-700'
+                        }`}
+                      >
+                        {item.category}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#858585] mt-0.5">
+                      {item.grams}g · P:{item.protein}g C:{item.carbohydrates}g F:{item.fat}g
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs font-bold text-[#171717]">
+                    {Math.round(item.calories)} kcal
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onEditMealItem(item)}
+                    className="p-1 text-neutral-400 hover:text-black"
+                    title="Edit item"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => await deleteMealItem(item.id)}
+                    className="p-1 text-rose-400 hover:text-rose-600"
+                    title="Delete item"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop / Tablet Table Container (Hidden on mobile < 640px) */}
+        <div className="hidden sm:block overflow-x-auto -mx-6 px-6">
           <table className="w-full text-left text-xs text-[#171717] border-collapse min-w-[650px]">
             <thead>
               <tr className="border-b border-[#F0F0F0] text-[#858585] font-medium text-[11px]">

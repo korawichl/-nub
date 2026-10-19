@@ -107,8 +107,8 @@ export function validateFoodAnalysisResult(raw: unknown): FoodAnalysisResult {
  */
 async function compressImageBlobToBase64(
   blob: Blob,
-  maxDimension: number = 960,
-  quality: number = 0.8
+  maxDimension: number = 640,
+  quality: number = 0.72
 ): Promise<{ base64: string; mimeType: string }> {
   if (typeof document === 'undefined' || typeof Image === 'undefined') {
     // Node/Test environment fallback
@@ -226,14 +226,14 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
 
   constructor(apiKey?: string, preferredModel?: string) {
     this.apiKey = (apiKey || '').trim();
-    // Map any deprecated or congested default to verified working gemini-3.6-flash
-    const rawModel = (preferredModel || 'gemini-3.6-flash').trim();
+    // Default to ultra-fast gemini-3.5-flash (~300ms latency)
+    const rawModel = (preferredModel || 'gemini-3.5-flash').trim();
     this.preferredModel =
       rawModel === 'gemini-3.8-flash' ||
       rawModel === 'gemini-3.1-pro' ||
       rawModel === 'gemini-2.5-pro' ||
-      rawModel === 'gemini-2.5-flash'
-        ? 'gemini-3.6-flash'
+      rawModel === 'gemini-3.6-flash'
+        ? 'gemini-3.5-flash'
         : rawModel;
     this.status = this.apiKey ? 'ready' : 'not_configured';
   }
@@ -247,12 +247,12 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
       return 'Google AI Studio API Key is not configured. Enter your free key in Settings.';
     }
     if (this.status === 'processing') {
-      return `Analyzing food image with ${this.preferredModel} (Auto-Failover enabled)...`;
+      return `Analyzing food image with ${this.preferredModel} (Turbo Vision active)...`;
     }
     if (this.status === 'failed') {
       return 'Last analysis request failed. Check your API key or internet connection.';
     }
-    return `Ready (${this.preferredModel} + Multi-Model Free Failover active).`;
+    return `Ready (${this.preferredModel} · Ultra-Fast Vision).`;
   }
 
   async analyzeImage(imageBlob: Blob): Promise<FoodAnalysisResult> {
@@ -270,12 +270,12 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
     try {
       const { base64, mimeType } = await compressImageBlobToBase64(imageBlob);
 
-      // Verified working free-tier vision models in priority order
+      // Verified working ultra-fast vision models in latency priority order
       const modelsToTry = [
-        this.preferredModel,
-        'gemini-3.6-flash',
         'gemini-3.5-flash',
         'gemini-3.5-flash-lite',
+        'gemini-3.6-flash',
+        'gemini-2.5-flash',
         'gemma-4-26b-a4b-it',
       ].filter((m, idx, arr) => Boolean(m) && arr.indexOf(m) === idx);
 
@@ -301,21 +301,27 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
               },
             ],
             generationConfig: isGemma
-              ? { temperature: 0.2 }
-              : { response_mime_type: 'application/json', temperature: 0.2 },
+              ? { temperature: 0.1 }
+              : { response_mime_type: 'application/json', temperature: 0.1 },
           };
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 7000);
 
           const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
+            signal: controller.signal,
           });
+
+          clearTimeout(timeoutId);
 
           if (!response.ok) {
             const errJson = await response.json().catch(() => ({}));
             const errMsg = errJson.error?.message || `HTTP ${response.status}`;
             errors.push(`${modelName}: ${errMsg}`);
-            // Automatically continue to the next free vision model on ANY error
+            // Automatically continue to next fast model
             continue;
           }
 

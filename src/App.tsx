@@ -124,9 +124,9 @@ export const App: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#E7E7E7] flex items-center justify-center p-2 sm:p-4 md:p-6 lg:p-8 font-sans antialiased text-[#171717]">
+    <div className="min-h-screen bg-neutral-100 lg:bg-[#E7E7E7] flex items-center justify-center p-0 lg:p-8 font-sans antialiased text-[#171717]">
       {/* Background Subtle Geometry Concentric Rings matching Jobgio */}
-      <div className="fixed inset-0 pointer-events-none opacity-40 overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none opacity-40 overflow-hidden hidden lg:block">
         <svg
           className="absolute -right-40 -top-40 w-[900px] h-[900px]"
           viewBox="0 0 1000 1000"
@@ -139,8 +139,8 @@ export const App: React.FC = () => {
         </svg>
       </div>
 
-      {/* Main Large White Rounded Container (The "Canvas") */}
-      <div className="relative w-full max-w-[1440px] min-h-[920px] bg-white rounded-[28px] sm:rounded-[36px] shadow-2xl border border-[#E0E0E0] flex overflow-hidden z-10">
+      {/* Main Large White Rounded Container (Full-bleed on mobile, rounded card canvas on desktop) */}
+      <div className="relative w-full max-w-[1440px] min-h-screen lg:min-h-[920px] bg-white rounded-none lg:rounded-[36px] shadow-none lg:shadow-2xl border-none lg:border border-[#E0E0E0] flex overflow-hidden z-10">
         {/* Left Sidebar (Jobgio Style) */}
         <>
           {/* Mobile Overlay */}
@@ -321,7 +321,7 @@ export const App: React.FC = () => {
           </header>
 
           {/* Main Content Area */}
-          <main className="flex-1 p-4 sm:p-6 lg:p-7 overflow-y-auto">
+          <main className="flex-1 p-3.5 pb-24 sm:p-6 lg:p-7 sm:pb-7 overflow-y-auto">
             {activeTab === 'dashboard' && (
               <TodayDashboard
                 todayItems={todayItems}
@@ -396,6 +396,75 @@ export const App: React.FC = () => {
           </main>
         </div>
       </div>
+
+      {/* Mobile Bottom Dock Navigation Bar (Matching the Mobile Reference Image) */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#EEEEEE] py-1.5 px-3 flex items-center justify-around shadow-lg lg:hidden"
+        aria-label="Mobile Navigation"
+      >
+        <button
+          type="button"
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl transition-all ${
+            activeTab === 'dashboard'
+              ? 'text-[#111111] font-bold scale-105'
+              : 'text-[#858585] hover:text-[#171717]'
+          }`}
+        >
+          <LayoutDashboard className="w-5 h-5" />
+          <span className="text-[10px]">Home</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('diary')}
+          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl transition-all ${
+            activeTab === 'diary'
+              ? 'text-[#111111] font-bold scale-105'
+              : 'text-[#858585] hover:text-[#171717]'
+          }`}
+        >
+          <BookOpen className="w-5 h-5" />
+          <span className="text-[10px]">Diary</span>
+        </button>
+
+        {/* Center Elevated Action Button for Quick AI Scanner */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('scanner')}
+          className="w-13 h-13 -mt-6 rounded-full bg-[#111111] text-white flex flex-col items-center justify-center shadow-xl active:scale-95 transition-transform border-4 border-white"
+          aria-label="AI Food Scanner"
+        >
+          <Camera className="w-5 h-5" />
+          <span className="text-[9px] font-bold mt-0.5">Scan</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('progress')}
+          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl transition-all ${
+            activeTab === 'progress'
+              ? 'text-[#111111] font-bold scale-105'
+              : 'text-[#858585] hover:text-[#171717]'
+          }`}
+        >
+          <TrendingUp className="w-5 h-5" />
+          <span className="text-[10px]">Analytics</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('settings')}
+          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl transition-all ${
+            activeTab === 'settings'
+              ? 'text-[#111111] font-bold scale-105'
+              : 'text-[#858585] hover:text-[#171717]'
+          }`}
+        >
+          <Settings className="w-5 h-5" />
+          <span className="text-[10px]">Settings</span>
+        </button>
+      </nav>
     </div>
   );
 };
