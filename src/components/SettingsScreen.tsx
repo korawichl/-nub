@@ -27,6 +27,7 @@ import {
   Target,
   Sun,
   Moon,
+  CloudMoon,
   Download,
   Upload,
   FileSpreadsheet,
@@ -80,8 +81,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [aiProviderId, setAiProviderId] = useState(settings.aiProviderId);
   const [geminiApiKey, setGeminiApiKey] = useState(settings.geminiApiKey || '');
   const [geminiModel, setGeminiModel] = useState(
-    settings.geminiModel || 'gemini-3.8-flash'
+    settings.geminiModel === 'gemini-3.8-flash' ||
+      settings.geminiModel === 'gemini-3.1-pro' ||
+      !settings.geminiModel
+      ? 'gemini-3.6-flash'
+      : settings.geminiModel
   );
+  const [groqApiKey, setGroqApiKey] = useState(settings.groqApiKey || '');
   const [aiEndpoint, setAiEndpoint] = useState(
     settings.aiBackendEndpoint || ''
   );
@@ -99,10 +105,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     settings.aiProviderId,
     settings.aiBackendEndpoint,
     settings.geminiApiKey,
-    settings.geminiModel
+    settings.geminiModel,
+    settings.groqApiKey
   );
 
-  // Recalculate BMR, TDEE, and remaining Carbs from current form inputs
   const handleRecalculateFromFormula = () => {
     const w = parseFloat(initialWeightKg);
     const h = parseFloat(heightCm);
@@ -111,7 +117,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
     const newBmr = calculateBMR({ weightKg: w, heightCm: h, age: a, sex });
     const newTdee = calculateTDEE(newBmr, activityLevel);
-    // Keep current calorieTarget or default -412 kcal deficit
     const cal = parseFloat(calorieTarget) || Math.max(1200, newTdee - 412);
     const pro = parseFloat(proteinTargetG) || 170;
     const fat = parseFloat(fatTargetG) || 85;
@@ -210,12 +215,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       aiProviderId,
       geminiModel,
       geminiApiKey: geminiApiKey.trim() || undefined,
+      groqApiKey: groqApiKey.trim() || undefined,
       aiBackendEndpoint: aiEndpoint.trim() || undefined,
       updatedAt: new Date().toISOString(),
     });
     setStatusBanner({
       type: 'success',
-      text: 'AI integration configuration updated.',
+      text: 'AI Vision configuration saved (Multi-Model Free Failover active).',
     });
   };
 
@@ -290,10 +296,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   return (
     <div className="screen-container">
       <header className="card">
-        <h1 className="screen-title">Settings, Targets & Data Backup</h1>
+        <h1 className="screen-title">Budget, Targets & System Settings</h1>
         <p className="screen-subtitle">
-          Manage your profile, Mifflin–St Jeor macro targets, theme, backups, and
-          local-first privacy.
+          Customize your 3-Mode UI Theme, Mifflin–St Jeor macro budget, free AI Vision models, and backups.
         </p>
       </header>
 
@@ -312,11 +317,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </div>
       )}
 
-      {/* Theme Switcher */}
+      {/* 3-Mode Theme Switcher matching Reference Image */}
       <section className="card">
         <div className="section-header">
-          <h2 className="section-title">Appearance & Theme</h2>
-          <div className="cta-row">
+          <div>
+            <h2 className="section-title">Appearance & 3-Mode Dashboard Theme</h2>
+            <p className="screen-subtitle">
+              Switch between Deep Abyssal Dark, Twilight Slate Hybrid, and Crisp Ice Light modes.
+            </p>
+          </div>
+          <div className="cta-row" style={{ marginTop: 0 }}>
             <button
               type="button"
               className={`btn btn-sm ${
@@ -324,7 +334,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               }`}
               onClick={() => handleToggleTheme('dark')}
             >
-              <Moon size={15} /> Dark Theme
+              <Moon size={15} /> 1. Deep Dark
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${
+                settings.theme === 'twilight' ? 'btn-primary' : 'btn-secondary'
+              }`}
+              onClick={() => handleToggleTheme('twilight')}
+            >
+              <CloudMoon size={15} /> 2. Twilight Slate
             </button>
             <button
               type="button"
@@ -333,10 +352,129 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               }`}
               onClick={() => handleToggleTheme('light')}
             >
-              <Sun size={15} /> Light Theme
+              <Sun size={15} /> 3. Crisp Light
             </button>
           </div>
         </div>
+      </section>
+
+      {/* AI Integration Status */}
+      <section className="card">
+        <div className="section-header">
+          <h2 className="section-title">
+            <Cpu size={18} /> Free AI Vision Configuration (Multi-Model Failover)
+          </h2>
+          <span
+            className={`badge ${
+              provider.getStatus() === 'ready' ? 'badge-success' : 'badge-warning'
+            }`}
+          >
+            {provider.getStatus()}
+          </span>
+        </div>
+
+        <p className="screen-subtitle" style={{ marginBottom: '0.75rem' }}>
+          {provider.getStatusMessage()}
+        </p>
+
+        <form onSubmit={handleSaveAiSettings} className="form-stack">
+          <div className="form-grid-2">
+            <div className="form-field">
+              <label className="field-label">Provider Mode</label>
+              <select
+                className="input-select"
+                value={aiProviderId}
+                onChange={(e) => setAiProviderId(e.target.value)}
+              >
+                <option value="none">
+                  Disabled / Local Manual Mode (No API Key Required)
+                </option>
+                <option value="direct_gemini">
+                  Google AI Studio Free Vision (Auto-Failover 4 โมเดลฟรี)
+                </option>
+                <option value="groq_free">
+                  Groq Cloud Free Vision (Llama 4 Scout 17B Vision ฟรี)
+                </option>
+                <option value="backend_proxy">
+                  Server-Side Proxy Endpoint (Official API Adapter)
+                </option>
+              </select>
+            </div>
+
+            {aiProviderId === 'direct_gemini' && (
+              <>
+                <div className="form-field">
+                  <label className="field-label">Primary Free Vision Model</label>
+                  <select
+                    className="input-select"
+                    value={geminiModel}
+                    onChange={(e) => setGeminiModel(e.target.value)}
+                  >
+                    <option value="gemini-3.6-flash">
+                      Gemini 3.6 Flash (เสถียรที่สุด + สลับสำรองอัตโนมัติ)
+                    </option>
+                    <option value="gemini-3.5-flash">
+                      Gemini 3.5 Flash (เร็วและแม่นยำ)
+                    </option>
+                    <option value="gemini-3.5-flash-lite">
+                      Gemini 3.5 Flash Lite (เบาและโควตาว่างเสมอ)
+                    </option>
+                    <option value="gemma-4-26b-a4b-it">
+                      Gemma 4 26B Vision (Open-Weights Multimodal ฟรี)
+                    </option>
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label className="field-label">Google AI Studio API Key</label>
+                  <input
+                    type="password"
+                    className="input-text"
+                    placeholder="AQ... หรือ AIzaSy..."
+                    value={geminiApiKey}
+                    onChange={(e) => setGeminiApiKey(e.target.value)}
+                  />
+                  <small className="field-hint">
+                    ระบบจะบีบอัดรูปอัตโนมัติและสลับโมเดลสำรอง (`3.6-flash` → `3.5-flash` → `3.5-flash-lite` → `gemma-4-26b`) ให้ทันทีหากโมเดลใดคิวเต็ม
+                  </small>
+                </div>
+              </>
+            )}
+
+            {aiProviderId === 'groq_free' && (
+              <div className="form-field">
+                <label className="field-label">Groq Cloud Free API Key (gsk_...)</label>
+                <input
+                  type="password"
+                  className="input-text"
+                  placeholder="gsk_..."
+                  value={groqApiKey}
+                  onChange={(e) => setGroqApiKey(e.target.value)}
+                />
+                <small className="field-hint">
+                  รับคีย์ฟรีได้ที่ console.groq.com (ใช้โมเดล Llama 4 Scout Vision ฟรี)
+                </small>
+              </div>
+            )}
+
+            {aiProviderId === 'backend_proxy' && (
+              <div className="form-field">
+                <label className="field-label">Backend Proxy Endpoint URL</label>
+                <input
+                  type="url"
+                  className="input-text"
+                  placeholder="http://localhost:8787/api/analyze-food"
+                  value={aiEndpoint}
+                  onChange={(e) => setAiEndpoint(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          <button type="submit" className="btn btn-primary btn-sm">
+            Save AI Provider Configuration
+          </button>
+        </form>
       </section>
 
       {/* Editable Profile & Nutrition Targets */}
@@ -481,7 +619,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <Target size={18} /> Editable Calorie & Macro Targets
             </h2>
             <p className="screen-subtitle">
-              Mifflin–St Jeor estimates (not measured expenditure). Adjust freely anytime.
+              Mifflin–St Jeor estimates. Adjust freely anytime.
             </p>
           </div>
           <button
@@ -598,7 +736,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         <hr className="divider" />
 
-        {/* Clear All Data with Confirmation */}
         <div className="danger-zone">
           <div>
             <h3 className="danger-title">Clear All Local Data</h3>
@@ -637,97 +774,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </div>
       </section>
 
-      {/* AI Integration Status */}
-      <section className="card">
-        <div className="section-header">
-          <h2 className="section-title">
-            <Cpu size={18} /> Optional AI Integration Status
-          </h2>
-          <span
-            className={`badge ${
-              provider.getStatus() === 'ready' ? 'badge-success' : 'badge-warning'
-            }`}
-          >
-            {provider.getStatus()}
-          </span>
-        </div>
-
-        <p className="screen-subtitle" style={{ marginBottom: '0.75rem' }}>
-          {provider.getStatusMessage()}
-        </p>
-
-        <form onSubmit={handleSaveAiSettings} className="form-stack">
-          <div className="form-grid-2">
-            <div className="form-field">
-              <label className="field-label">Provider Mode</label>
-              <select
-                className="input-select"
-                value={aiProviderId}
-                onChange={(e) => setAiProviderId(e.target.value)}
-              >
-                <option value="none">
-                  Disabled / Local Manual Mode (No API Key Required)
-                </option>
-                <option value="direct_gemini">
-                  Google Gemini API (ใส่ API Key โดยตรง)
-                </option>
-                <option value="backend_proxy">
-                  Server-Side Proxy Endpoint (Official API Adapter)
-                </option>
-              </select>
-            </div>
-
-            {aiProviderId === 'direct_gemini' && (
-              <>
-                <div className="form-field">
-                  <label className="field-label">Gemini Model (โมเดล)</label>
-                  <select
-                    className="input-select"
-                    value={geminiModel}
-                    onChange={(e) => setGeminiModel(e.target.value)}
-                  >
-                    <option value="gemini-3.8-flash">Gemini 3.8 Flash (แนะนำ - รวดเร็ว)</option>
-                    <option value="gemini-3.1-pro">Gemini 3.1 Pro (ฉลาดและแม่นยำสูง)</option>
-                    <option value="gemini-2.5-pro">Gemini 2.5 Pro (เสถียร)</option>
-                  </select>
-                </div>
-
-                <div className="form-field">
-                  <label className="field-label">Gemini API Key</label>
-                  <input
-                    type="password"
-                    className="input-text"
-                    placeholder="AIzaSy..."
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                  />
-                  <small className="field-hint">
-                    รับคีย์ฟรีได้จาก <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>Google AI Studio</a> (บันทึกในเครื่องคุณเท่านั้น)
-                  </small>
-                </div>
-              </>
-            )}
-
-            {aiProviderId === 'backend_proxy' && (
-              <div className="form-field">
-                <label className="field-label">Backend Proxy Endpoint URL</label>
-                <input
-                  type="url"
-                  className="input-text"
-                  placeholder="http://localhost:8787/api/analyze-food"
-                  value={aiEndpoint}
-                  onChange={(e) => setAiEndpoint(e.target.value)}
-                />
-              </div>
-            )}
-          </div>
-
-          <button type="submit" className="btn btn-secondary btn-sm">
-            Save AI Provider Mode
-          </button>
-        </form>
-      </section>
-
       {/* Local-Storage Privacy Information */}
       <section className="card privacy-card">
         <div className="section-header">
@@ -746,14 +792,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             nutrition records or photos are uploaded to external servers by default.
           </li>
           <li>
-            <strong>No Frontend Secrets:</strong> API credentials are never stored in{' '}
-            <code>localStorage</code> or bundled into frontend assets.
-          </li>
-          <li>
-            <strong>Important Browser Data Warning:</strong> Because data lives exclusively
-            on this device, clearing your browser's site data/storage or uninstalling the
-            browser may remove your local records. Use <strong>Export Full JSON Backup</strong>{' '}
-            regularly to keep a safe copy.
+            <strong>Important Browser Data Warning:</strong> Clearing your browser's site
+            data/storage may remove your local records. Use{' '}
+            <strong>Export Full JSON Backup</strong> regularly to keep a safe copy.
           </li>
         </ul>
       </section>

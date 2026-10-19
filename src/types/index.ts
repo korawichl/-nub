@@ -2,7 +2,7 @@ export type Sex = 'male' | 'female';
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'high' | 'extreme';
 export type GoalType = 'fat_loss' | 'maintenance' | 'muscle_gain';
 export type MealCategory = 'breakfast' | 'lunch' | 'dinner' | 'snacks';
-export type ThemeMode = 'dark' | 'light';
+export type ThemeMode = 'dark' | 'twilight' | 'light';
 export type FoodSourceType =
   | 'usda_reference'
   | 'thai_reference'
@@ -136,9 +136,10 @@ export interface AppSettings {
   id: string;
   theme: ThemeMode;
   timezone: string;
-  aiProviderId: string; // 'none' | 'direct_gemini' | 'backend_proxy'
-  geminiModel?: string; // 'gemini-3.8-flash' | 'gemini-3.1-pro' | 'gemini-2.5-pro'
+  aiProviderId: string; // 'none' | 'direct_gemini' | 'groq_free' | 'backend_proxy'
+  geminiModel?: string;
   geminiApiKey?: string;
+  groqApiKey?: string;
   aiBackendEndpoint?: string;
   updatedAt: string;
 }

@@ -39,7 +39,8 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
     settings.aiProviderId,
     settings.aiBackendEndpoint,
     settings.geminiApiKey,
-    settings.geminiModel
+    settings.geminiModel,
+    settings.groqApiKey
   );
   const providerStatus = provider.getStatus();
 
@@ -55,7 +56,6 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Revoke transient object URL when unmounting or changing image (never permanently store original photos by default)
   useEffect(() => {
     return () => {
       if (previewUrl) {
@@ -210,9 +210,9 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
       <header className="card">
         <div className="section-header">
           <div>
-            <h1 className="screen-title">Food Scanner & Photo Entry</h1>
+            <h1 className="screen-title">AI Food Vision Scanner</h1>
             <p className="screen-subtitle">
-              Capture or select a meal photo to inspect portions and log nutrients.
+              Automatic image compression + Multi-Model Free Failover (`gemini-3.6-flash` / `3.5-flash` / `gemma-4-26b`)
             </p>
           </div>
           <span
@@ -224,17 +224,13 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
           </span>
         </div>
 
-        {/* Clear explanation when AI analysis is unavailable */}
         {providerStatus === 'not_configured' && (
           <div className="alert-banner alert-info">
             <ShieldAlert size={20} className="alert-icon" />
             <div>
-              <strong>AI Analysis Unavailable (No Provider Configured)</strong>
+              <strong>AI Vision Not Configured Yet</strong>
               <p>
-                This app runs locally without requiring a <code>GEMINI_API_KEY</code>{' '}
-                and never fabricates fake AI results. You can capture or preview your
-                meal photo below as a visual portion reference, then select a food from
-                the catalog or enter values manually.
+                Open <strong>Budget & Settings</strong> to paste your free Google AI Studio key or Groq key, or log your meal manually below while previewing your photo.
               </p>
             </div>
           </div>
@@ -253,14 +249,13 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
             value={mealCategory}
             onChange={(e) => setMealCategory(e.target.value as MealCategory)}
           >
-            <option value="breakfast">Breakfast</option>
-            <option value="lunch">Lunch</option>
-            <option value="dinner">Dinner</option>
-            <option value="snacks">Snacks</option>
+            <option value="breakfast">Breakfast (มื้อเช้า)</option>
+            <option value="lunch">Lunch (มื้อเที่ยง)</option>
+            <option value="dinner">Dinner (มื้อเย็น)</option>
+            <option value="snacks">Snacks (ของว่าง/เครื่องดื่ม)</option>
           </select>
         </div>
 
-        {/* Hidden file inputs */}
         <input
           ref={cameraInputRef}
           type="file"
@@ -280,10 +275,9 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
         {!previewUrl ? (
           <div className="scanner-dropzone">
             <Camera size={40} className="scanner-icon" />
-            <h3>Capture or Choose a Food Photo</h3>
+            <h3>Capture or Choose a Food / Drink Photo</h3>
             <p>
-              Photos are held in memory for preview only and are not permanently stored
-              or uploaded by default.
+              Photos are automatically compressed in-memory for instant free AI vision analysis.
             </p>
             <div className="cta-row">
               <button
@@ -324,22 +318,21 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
               </button>
             </div>
 
-            {/* Optional AI Analysis Trigger */}
             <div className="ai-action-panel">
               {providerStatus === 'ready' ? (
                 <button
                   type="button"
-                  className="btn btn-accent btn-full"
+                  className="btn btn-primary btn-full"
                   disabled={scanState === 'loading'}
                   onClick={handleRunAiAnalysis}
                 >
                   {scanState === 'loading' ? (
                     <>
-                      <Loader2 size={18} className="spin" /> Analyzing Meal Photo...
+                      <Loader2 size={18} className="spin" /> Analyzing Photo (Auto-Failover Active)...
                     </>
                   ) : (
                     <>
-                      <Sparkles size={18} /> Analyze Photo with Configured AI Provider
+                      <Sparkles size={18} /> Analyze Photo with Free AI Vision
                     </>
                   )}
                 </button>
@@ -361,13 +354,6 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
                     >
                       <Edit3 size={15} /> Enter Meal Details Manually
                     </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={handleRunAiAnalysis}
-                    >
-                      Test Provider Status
-                    </button>
                   </div>
                 </div>
               )}
@@ -376,7 +362,7 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
                 <div className="alert-banner alert-danger" style={{ marginTop: '0.75rem' }}>
                   <AlertCircle size={18} />
                   <div>
-                    <strong>Analysis Unavailable</strong>
+                    <strong>Analysis Notice</strong>
                     <p>{errorMessage}</p>
                   </div>
                 </div>
@@ -416,7 +402,7 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
           <input
             type="search"
             className="input-text search-input"
-            placeholder="Search reference or custom foods (e.g., chicken, rice, egg, oats)..."
+            placeholder="ค้นหาอาหารไทย หรือ English (เช่น ข้าวมันไก่, กะเพรา, อกไก่, เวย์)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -442,26 +428,14 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
                   className="btn btn-secondary btn-sm"
                   onClick={() => handleSelectCatalogForConfirm(food)}
                 >
-                  Review & Confirm ({food.defaultServingGrams}g · {servingKcal} kcal)
+                  Select ({food.defaultServingGrams}g · {servingKcal} kcal)
                 </button>
               </div>
             );
           })}
-          {filteredCatalog.length === 0 && (
-            <div className="empty-state-compact">
-              <p>No matching foods in catalog.</p>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={handleManualBlankEntry}
-              >
-                Create Custom Meal "{searchQuery}"
-              </button>
-            </div>
-          )}
         </div>
 
-        <div className="scanner-footer-link">
+        <div style={{ marginTop: '0.75rem' }}>
           <button type="button" className="btn-link" onClick={onNavigateToDiary}>
             Or switch to the full Food Diary screen →
           </button>

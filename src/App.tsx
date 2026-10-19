@@ -9,7 +9,7 @@ import {
   createInitialProfile,
   createInitialSettings,
 } from './db/seedData';
-import type { ConfirmMealDraft, MealCategory, MealItem } from './types';
+import type { ConfirmMealDraft, MealCategory, MealItem, ThemeMode } from './types';
 import { getBangkokDateString } from './utils/date';
 import { TodayDashboard } from './components/TodayDashboard';
 import { FoodScanner } from './components/FoodScanner';
@@ -24,6 +24,10 @@ import {
   TrendingUp,
   Settings,
   WifiOff,
+  Moon,
+  CloudMoon,
+  Sun,
+  Flame,
 } from 'lucide-react';
 
 type ActiveTab = 'dashboard' | 'diary' | 'scanner' | 'confirm' | 'progress' | 'settings';
@@ -89,10 +93,17 @@ export const App: React.FC = () => {
   const catalog = useLiveQuery(() => db.foodCatalog.toArray(), []) || [];
   const weightLogs = useLiveQuery(() => db.weightLogs.toArray(), []) || [];
 
-  // Apply light/dark theme attribute to document root
+  // Apply 3-mode theme ('dark' | 'twilight' | 'light') attribute to document root
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', settings.theme);
+    document.documentElement.setAttribute('data-theme', settings.theme || 'dark');
   }, [settings.theme]);
+
+  const handleSetTheme = async (theme: ThemeMode) => {
+    await db.settings.update(settings.id, {
+      theme,
+      updatedAt: new Date().toISOString(),
+    });
+  };
 
   const frequentFoods = [...catalog].sort(
     (a, b) => (b.usageCount || 0) - (a.usageCount || 0)
@@ -118,11 +129,12 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-shell">
-      {/* Top App Bar */}
-      <header className="top-navbar">
-        <div className="top-navbar-inner">
+      {/* Outer Frame matching the Personal Finance reference UI */}
+      <div className="pf-dashboard-frame">
+        {/* Top Header Bar with Pill Navigation & 3-Mode Theme Switcher */}
+        <header className="pf-topbar">
           <div
-            className="brand-logo"
+            className="pf-brand"
             onClick={() => setActiveTab('dashboard')}
             role="button"
             tabIndex={0}
@@ -130,108 +142,185 @@ export const App: React.FC = () => {
               if (e.key === 'Enter') setActiveTab('dashboard');
             }}
           >
-            <span className="brand-badge">N</span>
+            <div className="pf-brand-icon">
+              <Flame size={18} />
+            </div>
             <div>
-              <span className="brand-name">Nub Tracker</span>
-              <span className="brand-tag">Local-First PWA</span>
+              <span className="pf-brand-title">Personal Nutrition</span>
+              <span className="pf-brand-sub">NUB BIO-TRACKER</span>
             </div>
           </div>
 
-          <div className="top-status-pills">
+          {/* Center Pill Navigation (Desktop / Tablet) */}
+          <nav className="pf-pill-nav" aria-label="Dashboard Sections">
+            <button
+              type="button"
+              className={`pf-pill-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
+              onClick={() => setActiveTab('dashboard')}
+            >
+              Dashboard
+            </button>
+            <button
+              type="button"
+              className={`pf-pill-btn ${activeTab === 'diary' ? 'active' : ''}`}
+              onClick={() => setActiveTab('diary')}
+            >
+              Food Diary
+            </button>
+            <button
+              type="button"
+              className={`pf-pill-btn ${
+                activeTab === 'scanner' || activeTab === 'confirm' ? 'active' : ''
+              }`}
+              onClick={() => setActiveTab('scanner')}
+            >
+              AI Scanner
+            </button>
+            <button
+              type="button"
+              className={`pf-pill-btn ${activeTab === 'progress' ? 'active' : ''}`}
+              onClick={() => setActiveTab('progress')}
+            >
+              Analytics
+            </button>
+            <button
+              type="button"
+              className={`pf-pill-btn ${activeTab === 'settings' ? 'active' : ''}`}
+              onClick={() => setActiveTab('settings')}
+            >
+              Budget & Settings
+            </button>
+          </nav>
+
+          {/* Right Status & 3-Mode Theme Switcher (Moon / CloudMoon / Sun) */}
+          <div className="pf-topbar-right">
             {isOffline && (
-              <span className="badge badge-warning" title="Working offline from IndexedDB">
-                <WifiOff size={13} /> Offline Mode (Local DB Active)
+              <span className="badge badge-warning" title="Offline Mode Active">
+                <WifiOff size={12} /> Offline
               </span>
             )}
-            <span className="badge badge-subtle">
-              Target: {goals.calorieTarget} kcal · {goals.proteinTargetG}g P
-            </span>
+            <div className="pf-target-tags">
+              <span className="pf-year-tag">{profile.initialWeightKg}kg</span>
+              <span className="pf-year-tag active">→ {profile.targetWeightKg}kg</span>
+              <span className="pf-year-tag">{goals.calorieTarget} kcal</span>
+            </div>
+
+            <div className="pf-theme-toggles" role="group" aria-label="Theme Mode">
+              <button
+                type="button"
+                className={`pf-theme-btn ${settings.theme === 'dark' ? 'active' : ''}`}
+                onClick={() => handleSetTheme('dark')}
+                title="Deep Abyssal Dark Mode"
+              >
+                <Moon size={15} />
+              </button>
+              <button
+                type="button"
+                className={`pf-theme-btn ${
+                  settings.theme === 'twilight' ? 'active' : ''
+                }`}
+                onClick={() => handleSetTheme('twilight')}
+                title="Twilight Slate Hybrid Mode"
+              >
+                <CloudMoon size={15} />
+              </button>
+              <button
+                type="button"
+                className={`pf-theme-btn ${settings.theme === 'light' ? 'active' : ''}`}
+                onClick={() => handleSetTheme('light')}
+                title="Crisp Ice Light Mode"
+              >
+                <Sun size={15} />
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content Area */}
-      <main className="main-content">
-        {activeTab === 'dashboard' && (
-          <TodayDashboard
-            todayItems={todayItems}
-            todayActivities={todayActivities}
-            goals={goals}
-            frequentFoods={frequentFoods}
-            onNavigateToDiary={handleNavigateToDiary}
-            onNavigateToScanner={() => setActiveTab('scanner')}
-            onOpenConfirmMeal={handleOpenConfirmMeal}
-            onEditMealItem={handleEditFromDashboard}
-            onQuickLogWeight={() => setActiveTab('progress')}
-          />
-        )}
+        {/* Main Screen Container */}
+        <main className="main-content">
+          {activeTab === 'dashboard' && (
+            <TodayDashboard
+              todayItems={todayItems}
+              allMealItems={allMealItems}
+              todayActivities={todayActivities}
+              goals={goals}
+              profile={profile}
+              frequentFoods={frequentFoods}
+              onNavigateToDiary={handleNavigateToDiary}
+              onNavigateToScanner={() => setActiveTab('scanner')}
+              onOpenConfirmMeal={handleOpenConfirmMeal}
+              onEditMealItem={handleEditFromDashboard}
+              onQuickLogWeight={() => setActiveTab('progress')}
+            />
+          )}
 
-        {activeTab === 'scanner' && (
-          <FoodScanner
-            settings={settings}
-            catalog={catalog}
-            onOpenConfirmMeal={handleOpenConfirmMeal}
-            onNavigateToDiary={() => setActiveTab('diary')}
-          />
-        )}
+          {activeTab === 'scanner' && (
+            <FoodScanner
+              settings={settings}
+              catalog={catalog}
+              onOpenConfirmMeal={handleOpenConfirmMeal}
+              onNavigateToDiary={() => setActiveTab('diary')}
+            />
+          )}
 
-        {activeTab === 'confirm' && confirmDraft && (
-          <ConfirmMeal
-            draft={confirmDraft}
-            targetDate={selectedDate}
-            onConfirmed={() => {
-              setConfirmDraft(null);
-              setActiveTab('diary');
-            }}
-            onCancel={() => {
-              setConfirmDraft(null);
-              setActiveTab('scanner');
-            }}
-          />
-        )}
+          {activeTab === 'confirm' && confirmDraft && (
+            <ConfirmMeal
+              draft={confirmDraft}
+              targetDate={selectedDate}
+              onConfirmed={() => {
+                setConfirmDraft(null);
+                setActiveTab('diary');
+              }}
+              onCancel={() => {
+                setConfirmDraft(null);
+                setActiveTab('scanner');
+              }}
+            />
+          )}
 
-        {activeTab === 'diary' && (
-          <FoodDiary
-            selectedDate={selectedDate}
-            onChangeDate={setSelectedDate}
-            dayItems={selectedDateItems}
-            goals={goals}
-            catalog={catalog}
-            initialCategory={diaryCategory}
-            editingItem={editingMealItem}
-            onClearEditingItem={() => setEditingMealItem(null)}
-            onOpenConfirmMeal={handleOpenConfirmMeal}
-          />
-        )}
+          {activeTab === 'diary' && (
+            <FoodDiary
+              selectedDate={selectedDate}
+              onChangeDate={setSelectedDate}
+              dayItems={selectedDateItems}
+              goals={goals}
+              catalog={catalog}
+              initialCategory={diaryCategory}
+              editingItem={editingMealItem}
+              onClearEditingItem={() => setEditingMealItem(null)}
+              onOpenConfirmMeal={handleOpenConfirmMeal}
+            />
+          )}
 
-        {activeTab === 'progress' && (
-          <ProgressScreen
-            profile={profile}
-            weightLogs={weightLogs}
-            allMealItems={allMealItems}
-            allActivityLogs={allActivityLogs}
-          />
-        )}
+          {activeTab === 'progress' && (
+            <ProgressScreen
+              profile={profile}
+              weightLogs={weightLogs}
+              allMealItems={allMealItems}
+              allActivityLogs={allActivityLogs}
+            />
+          )}
 
-        {activeTab === 'settings' && (
-          <SettingsScreen
-            profile={profile}
-            goals={goals}
-            settings={settings}
-            allMealItems={allMealItems}
-          />
-        )}
-      </main>
+          {activeTab === 'settings' && (
+            <SettingsScreen
+              profile={profile}
+              goals={goals}
+              settings={settings}
+              allMealItems={allMealItems}
+            />
+          )}
+        </main>
+      </div>
 
-      {/* Responsive Bottom / Primary Navigation Bar */}
-      <nav className="bottom-nav" aria-label="Primary Navigation">
+      {/* Mobile Bottom Dock Navigation */}
+      <nav className="bottom-nav" aria-label="Mobile Navigation">
         <button
           type="button"
           className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
           onClick={() => setActiveTab('dashboard')}
         >
-          <LayoutDashboard size={20} />
-          <span>Today</span>
+          <LayoutDashboard size={19} />
+          <span>Dashboard</span>
         </button>
 
         <button
@@ -239,7 +328,7 @@ export const App: React.FC = () => {
           className={`nav-tab ${activeTab === 'diary' ? 'active' : ''}`}
           onClick={() => setActiveTab('diary')}
         >
-          <BookOpen size={20} />
+          <BookOpen size={19} />
           <span>Diary</span>
         </button>
 
@@ -250,7 +339,7 @@ export const App: React.FC = () => {
           }`}
           onClick={() => setActiveTab('scanner')}
         >
-          <Camera size={20} />
+          <Camera size={19} />
           <span>Scanner</span>
         </button>
 
@@ -259,8 +348,8 @@ export const App: React.FC = () => {
           className={`nav-tab ${activeTab === 'progress' ? 'active' : ''}`}
           onClick={() => setActiveTab('progress')}
         >
-          <TrendingUp size={20} />
-          <span>Progress</span>
+          <TrendingUp size={19} />
+          <span>Analytics</span>
         </button>
 
         <button
@@ -268,7 +357,7 @@ export const App: React.FC = () => {
           className={`nav-tab ${activeTab === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveTab('settings')}
         >
-          <Settings size={20} />
+          <Settings size={19} />
           <span>Settings</span>
         </button>
       </nav>
