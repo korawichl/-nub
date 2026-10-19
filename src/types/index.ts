@@ -18,6 +18,7 @@ export interface PortionPreset {
 
 export interface UserProfile {
   id: string;
+  name?: string;
   age: number;
   sex: Sex;
   heightCm: number;

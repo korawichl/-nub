@@ -1,4 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from 'recharts';
 import type {
   ActivityLog,
   ConfirmMealDraft,
@@ -17,7 +26,6 @@ import { calculateDailySummary } from '../utils/nutritionCalculator';
 import {
   addActivityLogEntry,
   addCatalogFoodToMeal,
-  deleteActivityLogEntry,
   deleteMealItem,
 } from '../db/database';
 import {
@@ -28,11 +36,18 @@ import {
   Edit3,
   Scale,
   Dumbbell,
-  CheckCircle2,
   Droplets,
-  Waves,
-  Activity,
-  User,
+  Flame,
+  ArrowUpRight,
+  Search,
+  ChevronDown,
+  Download,
+  MoreHorizontal,
+  MinusCircle,
+  Check,
+  Wheat,
+  Sparkles,
+  BookOpen,
 } from 'lucide-react';
 
 interface TodayDashboardProps {
@@ -48,18 +63,6 @@ interface TodayDashboardProps {
   onEditMealItem: (item: MealItem) => void;
   onQuickLogWeight: () => void;
 }
-
-const MEAL_SEGMENTS: {
-  key: MealCategory;
-  label: string;
-  thaiLabel: string;
-  color: string;
-}[] = [
-  { key: 'breakfast', label: 'Breakfast', thaiLabel: 'มื้อเช้า', color: '#00f2fe' },
-  { key: 'lunch', label: 'Lunch', thaiLabel: 'มื้อเที่ยง', color: '#0ea5e9' },
-  { key: 'dinner', label: 'Dinner', thaiLabel: 'มื้อเย็น', color: '#3b82f6' },
-  { key: 'snacks', label: 'Snacks', thaiLabel: 'ของว่าง/เวย์', color: '#14b8a6' },
-];
 
 export const TodayDashboard: React.FC<TodayDashboardProps> = ({
   todayItems,
@@ -82,865 +85,834 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
     fatTargetG: goals.fatTargetG,
   });
 
-  // Water & Workout logs
-  const waterLogs = todayActivities.filter((a) => a.activityType === 'water_intake');
-  const workoutLogs = todayActivities.filter((a) => a.activityType !== 'water_intake');
-
-  const consumedWaterMl = waterLogs.reduce(
-    (sum, a) => sum + (a.waterMl || a.durationMinutes || 0),
-    0
-  );
+  // Water calculations
+  const consumedWaterMl = todayActivities
+    .filter((a) => a.activityType === 'water')
+    .reduce((sum, a) => sum + (a.waterMl || a.durationMinutes || 0), 0);
   const waterTargetMl = goals.waterTargetMl || 3000;
-  const waterPct = Math.min(100, Math.round((consumedWaterMl / waterTargetMl) * 100));
 
+  // Workouts logged today
+  const workoutLogs = todayActivities.filter((a) => a.activityType !== 'water');
+
+  // Search & Filter state for the Manage Food Log table
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMealCategory, setSelectedMealCategory] = useState<string>('All');
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [actionMenuOpenId, setActionMenuOpenId] = useState<string | null>(null);
+
+  // Quick Activity State
   const [showWorkoutForm, setShowWorkoutForm] = useState(false);
   const [workoutType, setWorkoutType] = useState('Swimming (ว่ายน้ำ)');
-  const [workoutDuration, setWorkoutDuration] = useState('60');
-  const workoutIntensity: 'low' | 'moderate' | 'high' = 'high';
-  const [workoutNotes, setWorkoutNotes] = useState('');
+  const [workoutDuration, setWorkoutDuration] = useState('45');
 
-  // Build 7-day history for the Compare Intake spline chart & mini bar chart
+  // Build 7-day history for the Recharts Bar Chart
   const last7Days = Array.from({ length: 7 }, (_, idx) =>
     shiftDateString(todayBangkok, -(6 - idx))
   );
 
-  const dailySeries = last7Days.map((dateStr) => {
+  const weeklyChartData = last7Days.map((dateStr) => {
     const items = allMealItems.filter((i) => i.date === dateStr);
     const kcal = Math.round(items.reduce((s, x) => s + x.calories, 0));
-    const pro = Math.round(items.reduce((s, x) => s + x.protein, 0));
-    const shortLabel = dateStr.slice(5); // MM-DD
-    return { dateStr, shortLabel, kcal, pro };
-  });
+    const protein = Math.round(items.reduce((s, x) => s + x.protein, 0));
+    const isToday = dateStr === todayBangkok;
+    // Format day name: e.g. Mon, Tue, etc.
+    const dateObj = new Date(dateStr + 'T00:00:00');
+    const dayLabel = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
 
-  // Multi-segment Donut math (Costs breakdown style)
-  const radius = 58;
-  const circumference = 2 * Math.PI * radius;
-  const totalConsumed = Math.max(1, summary.consumedCalories);
-  let accumulatedPercent = 0;
-
-  const segmentBreakdown = MEAL_SEGMENTS.map((seg) => {
-    const segItems = todayItems.filter((i) => i.category === seg.key);
-    const kcal = Math.round(segItems.reduce((s, i) => s + i.calories, 0));
-    const pro = Math.round(segItems.reduce((s, i) => s + i.protein, 0));
-    const pct =
-      summary.consumedCalories > 0
-        ? Math.round((kcal / totalConsumed) * 100)
-        : 0;
-    const strokeLength = (pct / 100) * circumference;
-    const strokeOffset = -((accumulatedPercent / 100) * circumference);
-    accumulatedPercent += pct;
     return {
-      ...seg,
-      kcal,
-      pro,
-      pct,
-      strokeLength,
-      strokeOffset,
+      dateStr,
+      dayLabel: isToday ? 'Today' : dayLabel,
+      consumedKcal: kcal,
+      targetKcal: goals.calorieTarget,
+      protein,
+      isToday,
     };
   });
+
+  // Table Filtering
+  const filteredItems = useMemo(() => {
+    return todayItems.filter((item) => {
+      const matchSearch = item.foodNameSnapshot
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      const matchCat =
+        selectedMealCategory === 'All' || item.category === selectedMealCategory;
+      return matchSearch && matchCat;
+    });
+  }, [todayItems, searchQuery, selectedMealCategory]);
+
+  // Real CSV Export for Today's Meals
+  const handleExportCSV = () => {
+    if (todayItems.length === 0) {
+      alert('No food items logged today to export.');
+      return;
+    }
+
+    const itemsToExport =
+      selectedItemIds.length > 0
+        ? todayItems.filter((i) => selectedItemIds.includes(i.id))
+        : filteredItems;
+
+    const headers = [
+      'Food Name',
+      'Meal Category',
+      'Portion (g)',
+      'Calories (kcal)',
+      'Protein (g)',
+      'Carbs (g)',
+      'Fat (g)',
+      'Logged Date',
+      'Source',
+    ];
+
+    const rows = itemsToExport.map((i) => [
+      `"${i.foodNameSnapshot.replace(/"/g, '""')}"`,
+      i.category,
+      i.grams,
+      Math.round(i.calories),
+      i.protein,
+      i.carbohydrates,
+      i.fat,
+      i.date,
+      i.sourceSnapshot,
+    ]);
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.href = encodedUri;
+    link.download = `nubcal-meals-${todayBangkok}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Quick Action Handlers
+  const handleQuickWater = async (amountMl: number) => {
+    await addActivityLogEntry({
+      date: todayBangkok,
+      activityType: 'water',
+      durationMinutes: 0,
+      estimatedCaloriesBurned: 0,
+      waterMl: amountMl,
+      notes: `Quick hydration +${amountMl}ml`,
+    });
+  };
+
+  const handleCustomWorkoutSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const duration = parseInt(workoutDuration, 10) || 30;
+    const estimatedBurn = Math.round(duration * 7.5);
+
+    await addActivityLogEntry({
+      date: todayBangkok,
+      activityType: workoutType,
+      durationMinutes: duration,
+      estimatedCaloriesBurned: estimatedBurn,
+      notes: `Logged workout: ${workoutType}`,
+    });
+
+    setShowWorkoutForm(false);
+  };
 
   const handleQuickAddCatalog = async (food: FoodCatalogItem) => {
     await addCatalogFoodToMeal(
       food,
       food.defaultServingGrams,
       todayBangkok,
-      'snacks'
+      'lunch'
     );
   };
 
-  const handleAddWater = async (ml: number) => {
-    await addActivityLogEntry({
-      date: todayBangkok,
-      activityType: 'water_intake',
-      durationMinutes: 0,
-      waterMl: ml,
-      notes: `${ml} ml water`,
-    });
+  // Selection Handlers
+  const isAllSelected =
+    filteredItems.length > 0 &&
+    filteredItems.every((i) => selectedItemIds.includes(i.id));
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedItemIds([]);
+    } else {
+      setSelectedItemIds(filteredItems.map((i) => i.id));
+    }
   };
 
-  const handleQuickWorkout = async (
-    label: string,
-    minutes: number,
-    intensity: 'low' | 'moderate' | 'high',
-    notes?: string
-  ) => {
-    await addActivityLogEntry({
-      date: todayBangkok,
-      activityType: label,
-      durationMinutes: minutes,
-      intensity,
-      notes,
-    });
-  };
-
-  const handleCustomWorkoutSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const mins = parseInt(workoutDuration, 10);
-    if (!Number.isFinite(mins) || mins <= 0) return;
-
-    await addActivityLogEntry({
-      date: todayBangkok,
-      activityType: workoutType,
-      durationMinutes: mins,
-      intensity: workoutIntensity,
-      notes: workoutNotes.trim() || undefined,
-    });
-    setWorkoutNotes('');
-    setShowWorkoutForm(false);
-  };
-
-  // Render smooth SVG area curve for Compare Intake (Right bottom panel in reference image)
-  const renderCompareSplineChart = () => {
-    const w = 540;
-    const h = 190;
-    const padX = 38;
-    const padY = 24;
-    const innerW = w - padX * 2;
-    const innerH = h - padY * 2;
-    const maxVal = Math.max(
-      goals.calorieTarget * 1.2,
-      ...dailySeries.map((d) => d.kcal),
-      3200
+  const handleToggleSelectRow = (id: string) => {
+    setSelectedItemIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
+  };
 
-    const toX = (i: number) => padX + (i / 6) * innerW;
-    const toY = (val: number) => padY + innerH - (val / maxVal) * innerH;
-
-    const pts = dailySeries.map((d, i) => ({
-      x: toX(i),
-      y: toY(d.kcal),
-      kcal: d.kcal,
-      pro: d.pro,
-      label: d.shortLabel,
-      isToday: d.dateStr === todayBangkok,
-    }));
-
-    // Build smooth cubic bezier path
-    const buildSmoothPath = (points: { x: number; y: number }[]) => {
-      if (points.length === 0) return '';
-      let d = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
-      for (let i = 0; i < points.length - 1; i++) {
-        const curr = points[i];
-        const next = points[i + 1];
-        const ctrlX1 = curr.x + (next.x - curr.x) / 2;
-        const ctrlY1 = curr.y;
-        const ctrlX2 = curr.x + (next.x - curr.x) / 2;
-        const ctrlY2 = next.y;
-        d += ` C ${ctrlX1.toFixed(1)} ${ctrlY1.toFixed(1)}, ${ctrlX2.toFixed(1)} ${ctrlY2.toFixed(1)}, ${next.x.toFixed(1)} ${next.y.toFixed(1)}`;
+  const handleBulkDelete = async () => {
+    if (window.confirm(`Delete ${selectedItemIds.length} food logs?`)) {
+      for (const id of selectedItemIds) {
+        await deleteMealItem(id);
       }
-      return d;
-    };
-
-    const linePath = buildSmoothPath(pts);
-    const areaPath = `${linePath} L ${pts[pts.length - 1].x.toFixed(1)} ${(
-      padY + innerH
-    ).toFixed(1)} L ${pts[0].x.toFixed(1)} ${(padY + innerH).toFixed(1)} Z`;
-
-    const targetY = toY(goals.calorieTarget);
-
-    return (
-      <svg
-        viewBox={`0 0 ${w} ${h}`}
-        className="pf-spline-svg"
-        role="img"
-        aria-label="7-Day Calorie and Target Curve"
-      >
-        <defs>
-          <linearGradient id="cyanAreaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#00f2fe" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#0284c7" stopOpacity="0.0" />
-          </linearGradient>
-        </defs>
-
-        {/* Horizontal Grid Lines */}
-        {[0.25, 0.5, 0.75, 1].map((ratio, idx) => {
-          const yPos = padY + innerH * (1 - ratio);
-          const labelVal = Math.round(maxVal * ratio);
-          return (
-            <g key={idx}>
-              <line
-                x1={padX}
-                y1={yPos}
-                x2={w - padX}
-                y2={yPos}
-                stroke="var(--border-subtle)"
-                strokeWidth="1"
-                opacity="0.5"
-              />
-              <text
-                x={padX - 6}
-                y={yPos + 3}
-                fontSize="9"
-                fill="var(--text-muted)"
-                textAnchor="end"
-              >
-                {labelVal}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* Target Calorie Curve Line */}
-        <line
-          x1={padX}
-          y1={targetY}
-          x2={w - padX}
-          y2={targetY}
-          stroke="#14b8a6"
-          strokeWidth="1.5"
-          strokeDasharray="4 4"
-        />
-
-        {/* Area & Smooth Curve */}
-        <path d={areaPath} fill="url(#cyanAreaGrad)" />
-        <path
-          d={linePath}
-          fill="none"
-          stroke="#00f2fe"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-
-        {/* Vertical Pin Drops & Callout Badges like the reference image */}
-        {pts.map((pt, i) => (
-          <g key={i}>
-            <line
-              x1={pt.x}
-              y1={pt.y}
-              x2={pt.x}
-              y2={padY + innerH}
-              stroke="#00f2fe"
-              strokeWidth="1"
-              opacity={pt.kcal > 0 ? 0.35 : 0.1}
-            />
-            <circle
-              cx={pt.x}
-              cy={pt.y}
-              r={pt.isToday ? 4.5 : 3.5}
-              fill={pt.isToday ? '#00f2fe' : '#0284c7'}
-              stroke="#ffffff"
-              strokeWidth="1.5"
-            />
-            {pt.kcal > 0 && (
-              <g transform={`translate(${pt.x}, ${Math.max(14, pt.y - 14)})`}>
-                <rect
-                  x="-22"
-                  y="-10"
-                  width="44"
-                  height="15"
-                  rx="4"
-                  fill="#f8fafc"
-                />
-                <text
-                  x="0"
-                  y="1"
-                  fontSize="8.5"
-                  fontWeight="800"
-                  fill="#061325"
-                  textAnchor="middle"
-                >
-                  {pt.kcal}
-                </text>
-              </g>
-            )}
-            <text
-              x={pt.x}
-              y={h - 5}
-              fontSize="9.5"
-              fontWeight={pt.isToday ? '800' : '600'}
-              fill={pt.isToday ? '#00f2fe' : 'var(--text-muted)'}
-              textAnchor="middle"
-            >
-              {pt.isToday ? 'TODAY' : pt.label}
-            </text>
-          </g>
-        ))}
-      </svg>
-    );
+      setSelectedItemIds([]);
+    }
   };
 
   return (
-    <div className="screen-container">
-      {/* Main 2-Column Personal Finance Style Grid */}
-      <div className="pf-bento-grid">
-        {/* LEFT COLUMN: Balance Card + Macro Goals + Weekly Bars */}
-        <div className="pf-left-col">
-          {/* 1. Balance / Calorie Budget Dark Hero Card */}
-          <div className="pf-balance-card">
-            <div className="pf-balance-top">
-              <div>
-                <span className="pf-balance-label">Remaining Budget</span>
-                <div className="pf-balance-amount">
-                  {Math.round(summary.remainingCalories).toLocaleString()}{' '}
-                  <small>kcal</small>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="pf-avatar-btn"
-                onClick={onQuickLogWeight}
-                title="Log Body Weight"
-              >
-                <User size={18} />
-              </button>
-            </div>
-
-            <div className="pf-card-chip-row">
-              <span className="pf-chip-icon" />
-              <span className="pf-dots-mask">•••• •••• •••• {profile.targetWeightKg}KG</span>
-            </div>
-
-            <div className="pf-flow-row">
-              <div>
-                <div className="pf-flow-val">
-                  {Math.round(summary.consumedCalories).toLocaleString()} kcal
-                </div>
-                <div className="pf-flow-sub">Consumed Today ({formatDisplayDate(todayBangkok)})</div>
-              </div>
-
-              <div className="pf-load-ring-box">
-                <span className="pf-load-label">Budget Load</span>
-                <div className="pf-mini-circle">
-                  {Math.min(999, Math.round(summary.calorieProgressPercent))}%
-                </div>
-              </div>
-            </div>
-
-            {/* Decorative Sparkline Wave inside Balance Card */}
-            <svg viewBox="0 0 260 54" className="pf-mini-wave">
-              <path
-                d="M 0 42 Q 45 34, 85 28 T 175 18 T 260 12"
-                fill="none"
-                stroke="#00f2fe"
-                strokeWidth="2"
-              />
-              <path
-                d="M 0 46 Q 60 40, 120 35 T 260 26"
-                fill="none"
-                stroke="#3b82f6"
-                strokeWidth="1.5"
-                opacity="0.6"
-              />
-              <circle cx="175" cy="18" r="4" fill="#00f2fe" stroke="#fff" strokeWidth="1.5" />
-            </svg>
-
-            <div className="pf-actual-change">
-              Est. TDEE Expenditure <strong>{goals.estimatedTdee.toLocaleString()} kcal/d</strong>
-            </div>
-
-            {/* Primary Action Buttons inside Hero */}
-            <div className="pf-hero-actions">
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                style={{ flex: 1 }}
-                onClick={() => onNavigateToDiary('breakfast')}
-              >
-                <Plus size={15} /> Add Food
-              </button>
-              <button
-                type="button"
-                className="btn btn-accent btn-sm"
-                style={{ flex: 1 }}
-                onClick={onNavigateToScanner}
-              >
-                <Camera size={15} /> AI Photo Scan
-              </button>
-            </div>
-          </div>
-
-          {/* 2. Goals Progress List (Protein, Carbs, Fat, Hydration) */}
-          <div className="pf-card pf-goals-card">
-            <div className="pf-goals-header">
-              <span>
-                Goals{' '}
-                <strong>
-                  {Math.round(summary.consumedCalories)} / {goals.calorieTarget}
-                </strong>
-              </span>
-              <span className="pf-goals-pct">
-                {Math.min(100, Math.round(summary.calorieProgressPercent))}%
-              </span>
-            </div>
-            <div className="pf-thin-bar" style={{ marginBottom: '0.9rem' }}>
-              <div
-                className="pf-thin-fill"
-                style={{
-                  width: `${Math.min(100, summary.calorieProgressPercent)}%`,
-                }}
-              />
-            </div>
-
-            <div className="pf-goal-rows">
-              <div className="pf-goal-item">
-                <div className="pf-goal-icon">P</div>
-                <div className="pf-goal-body">
-                  <div className="pf-goal-line">
-                    <span>Protein</span>
-                    <span>
-                      {summary.consumedProtein}g / {goals.proteinTargetG}g
-                    </span>
-                    <strong>{summary.proteinProgressPercent}%</strong>
-                  </div>
-                  <div className="pf-thin-bar">
-                    <div
-                      className="pf-thin-fill"
-                      style={{
-                        width: `${Math.min(100, summary.proteinProgressPercent)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pf-goal-item">
-                <div className="pf-goal-icon">C</div>
-                <div className="pf-goal-body">
-                  <div className="pf-goal-line">
-                    <span>Carbs</span>
-                    <span>
-                      {summary.consumedCarbs}g / {goals.carbsTargetG}g
-                    </span>
-                    <strong>{summary.carbsProgressPercent}%</strong>
-                  </div>
-                  <div className="pf-thin-bar">
-                    <div
-                      className="pf-thin-fill"
-                      style={{
-                        width: `${Math.min(100, summary.carbsProgressPercent)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pf-goal-item">
-                <div className="pf-goal-icon">F</div>
-                <div className="pf-goal-body">
-                  <div className="pf-goal-line">
-                    <span>Fat</span>
-                    <span>
-                      {summary.consumedFat}g / {goals.fatTargetG}g
-                    </span>
-                    <strong>{summary.fatProgressPercent}%</strong>
-                  </div>
-                  <div className="pf-thin-bar">
-                    <div
-                      className="pf-thin-fill"
-                      style={{
-                        width: `${Math.min(100, summary.fatProgressPercent)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pf-goal-item">
-                <div className="pf-goal-icon">W</div>
-                <div className="pf-goal-body">
-                  <div className="pf-goal-line">
-                    <span>Water</span>
-                    <span>
-                      {consumedWaterMl} / {waterTargetMl} ml
-                    </span>
-                    <strong>{waterPct}%</strong>
-                  </div>
-                  <div className="pf-thin-bar">
-                    <div
-                      className="pf-thin-fill"
-                      style={{ width: `${waterPct}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 3. Annual / Weekly Plans Vertical Bar Chart Card */}
-          <div className="pf-card pf-plans-card">
-            <div className="pf-card-title">Weekly Protein Adherence</div>
-            <div className="pf-bars-container">
-              {dailySeries.slice(-4).map((d, idx) => {
-                const pct = Math.min(
-                  100,
-                  Math.max(12, Math.round((d.pro / goals.proteinTargetG) * 100))
-                );
-                const isToday = d.dateStr === todayBangkok;
-                return (
-                  <div key={idx} className="pf-bar-col">
-                    <span className="pf-bar-top-val">{d.pro}g</span>
-                    <div className="pf-bar-pair">
-                      <div
-                        className={`pf-bar-Main ${isToday ? 'neon' : ''}`}
-                        style={{ height: `${pct}%` }}
-                      />
-                      <div className="pf-bar-Target" style={{ height: '85%' }} />
-                    </div>
-                    <span className={`pf-bar-label ${isToday ? 'active' : ''}`}>
-                      {isToday ? 'Today' : d.shortLabel}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+    <div className="flex flex-col gap-6">
+      {/* =========================================================================
+          1. TOP SECTION: QUICK STATS (6 ROUNDED PILL CARDS IN A ROW)
+          Exact translation of Jobgio's 6 top cards into Nubcal nutrition metrics!
+         ========================================================================= */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-[#171717] tracking-tight">Quick Stats</h2>
+            <p className="text-xs text-[#858585] mt-0.5">
+              Your nutrition & calorie budget for {formatDisplayDate(todayBangkok)}
+            </p>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Multi-Segment Donut Breakdown + Compare Spline Chart */}
-        <div className="pf-right-col">
-          {/* 1. Top Right: Multi-Segment Donut Chart & Meal Category Breakdown */}
-          <div className="pf-card pf-donut-card">
-            <div className="pf-donut-header">
-              <span className="pf-card-title">Calories by Meal</span>
-              <span className="pf-total-highlight">
-                {Math.round(summary.consumedCalories).toLocaleString()} kcal
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3.5">
+          {/* Card 1: Remaining Calories */}
+          <div className="relative flex flex-col items-center justify-between p-4 bg-white border border-[#EEEEEE] rounded-[22px] min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
+            <div className="w-11 h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
+              <Flame className="w-5 h-5 text-amber-600 stroke-[2.2]" />
+            </div>
+            <div className="flex flex-col items-center mt-2">
+              <span className="text-xl font-bold tracking-tight text-[#171717]">
+                {Math.round(summary.remainingCalories).toLocaleString()}
+              </span>
+              <span className="text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
+                Remaining kcal
               </span>
             </div>
+            <div className="text-[10px] text-neutral-400 font-medium">Budget Balance</div>
+          </div>
 
-            <div className="pf-donut-body">
-              <div className="pf-donut-svg-wrap">
-                <svg width="160" height="160" viewBox="0 0 160 160">
-                  <circle
-                    cx="80"
-                    cy="80"
-                    r={radius}
-                    fill="none"
-                    stroke="var(--border-subtle)"
-                    strokeWidth="22"
-                  />
-                  {summary.consumedCalories > 0 &&
-                    segmentBreakdown.map((seg) => (
-                      <circle
-                        key={seg.key}
-                        cx="80"
-                        cy="80"
-                        r={radius}
-                        fill="none"
-                        stroke={seg.color}
-                        strokeWidth="22"
-                        strokeDasharray={`${seg.strokeLength} ${circumference}`}
-                        strokeDashoffset={seg.strokeOffset}
-                        transform="rotate(-90 80 80)"
-                      />
-                    ))}
-                </svg>
-                <div className="pf-donut-center">
-                  <strong>
-                    {Math.round(summary.consumedCalories).toLocaleString()}
-                  </strong>
-                  <span>Total kcal</span>
-                </div>
-              </div>
-
-              <div className="pf-donut-table">
-                {segmentBreakdown.map((seg) => (
-                  <div
-                    key={seg.key}
-                    className="pf-donut-row"
-                    onClick={() => onNavigateToDiary(seg.key)}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <span className="pf-dot-name">
-                      <i
-                        className="pf-color-dot"
-                        style={{ backgroundColor: seg.color }}
-                      />
-                      {seg.label} <small>({seg.thaiLabel})</small>
-                    </span>
-                    <span className="pf-dot-pct">{seg.pct}%</span>
-                    <span className="pf-dot-val">{seg.kcal} kcal</span>
-                  </div>
-                ))}
-              </div>
+          {/* Card 2: Consumed Calories */}
+          <div className="relative flex flex-col items-center justify-between p-4 bg-white border border-[#EEEEEE] rounded-[22px] min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
+            <div className="w-11 h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
+              <Utensils className="w-5 h-5 text-neutral-800 stroke-[2.2]" />
+            </div>
+            <div className="flex flex-col items-center mt-2">
+              <span className="text-xl font-bold tracking-tight text-[#171717]">
+                {Math.round(summary.consumedCalories).toLocaleString()}
+              </span>
+              <span className="text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
+                Consumed kcal
+              </span>
+            </div>
+            <div className="text-[10px] text-neutral-400 font-medium">
+              {Math.round((summary.consumedCalories / goals.calorieTarget) * 100)}% of goal
             </div>
           </div>
 
-          {/* 2. Bottom Right: Compare Intake 7-Day Smooth Spline Curve */}
-          <div className="pf-card pf-compare-card">
-            <div className="pf-compare-header">
-              <div className="pf-compare-title-group">
-                <span className="pf-card-title">Compare Intake</span>
-                <strong className="pf-cyan-val">
-                  {Math.round(summary.consumedCalories).toLocaleString()} kcal
-                </strong>
-              </div>
-
-              <div className="pf-compare-pills">
-                <span className="pf-toggle-pill">
-                  Target <strong>{goals.calorieTarget}</strong>
-                  <i className="pf-pill-dot cyan" />
-                </span>
-                <span className="pf-toggle-pill">
-                  Protein <strong>{summary.consumedProtein}g</strong>
-                  <i className="pf-pill-dot teal" />
-                </span>
-              </div>
+          {/* Card 3: Calorie Target / Active Burn (Highlighted Black Circular Icon with Arrow) */}
+          <div className="relative flex flex-col items-center justify-between p-4 bg-white border border-[#EEEEEE] rounded-[22px] min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
+            <div className="w-11 h-11 rounded-full bg-[#111111] text-white flex items-center justify-center shadow-xs transition-transform group-hover:scale-105">
+              <Scale className="w-5 h-5 stroke-[2.2]" />
             </div>
+            <div className="flex flex-col items-center mt-2">
+              <span className="text-xl font-bold tracking-tight text-[#171717]">
+                {goals.calorieTarget.toLocaleString()}
+              </span>
+              <span className="text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
+                Daily Target kcal
+              </span>
+            </div>
+            <div className="mt-0.5">
+              <ArrowUpRight className="w-3.5 h-3.5 text-neutral-400 group-hover:text-black transition-colors" />
+            </div>
+          </div>
 
-            {renderCompareSplineChart()}
+          {/* Card 4: Protein */}
+          <div className="relative flex flex-col items-center justify-between p-4 bg-white border border-[#EEEEEE] rounded-[22px] min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
+            <div className="w-11 h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
+              <Dumbbell className="w-5 h-5 text-blue-600 stroke-[2.2]" />
+            </div>
+            <div className="flex flex-col items-center mt-2">
+              <span className="text-xl font-bold tracking-tight text-[#171717]">
+                {Math.round(summary.consumedProtein)}g
+              </span>
+              <span className="text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
+                Protein / {goals.proteinTargetG}g
+              </span>
+            </div>
+            <div className="text-[10px] text-neutral-400 font-medium">Muscle Builder</div>
+          </div>
+
+          {/* Card 5: Carbs & Fat */}
+          <div className="relative flex flex-col items-center justify-between p-4 bg-white border border-[#EEEEEE] rounded-[22px] min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
+            <div className="w-11 h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
+              <Wheat className="w-5 h-5 text-amber-700 stroke-[2.2]" />
+            </div>
+            <div className="flex flex-col items-center mt-2">
+              <span className="text-xl font-bold tracking-tight text-[#171717]">
+                {Math.round(summary.consumedCarbs)}g / {Math.round(summary.consumedFat)}g
+              </span>
+              <span className="text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
+                Carbs & Fat
+              </span>
+            </div>
+            <div className="text-[10px] text-neutral-400 font-medium">Daily Energy</div>
+          </div>
+
+          {/* Card 6: Water Intake */}
+          <div className="relative flex flex-col items-center justify-between p-4 bg-white border border-[#EEEEEE] rounded-[22px] min-h-[148px] shadow-xs hover:border-neutral-300 transition-all text-center group">
+            <div className="w-11 h-11 rounded-full bg-[#F5F5F5] text-[#171717] flex items-center justify-center transition-transform group-hover:scale-105">
+              <Droplets className="w-5 h-5 text-cyan-600 stroke-[2.2]" />
+            </div>
+            <div className="flex flex-col items-center mt-2">
+              <span className="text-xl font-bold tracking-tight text-[#171717]">
+                {(consumedWaterMl / 1000).toFixed(1)}L
+              </span>
+              <span className="text-[11px] font-medium text-[#858585] mt-0.5 leading-tight">
+                Water / {(waterTargetMl / 1000).toFixed(1)}L
+              </span>
+            </div>
+            <div className="text-[10px] text-neutral-400 font-medium">Hydration</div>
           </div>
         </div>
       </div>
 
-      {/* Bottom Row: Hydration + Swimming/Strength Log + Quick Thai Foods + Today's Entries */}
-      <div className="form-grid-2">
-        <section className="card">
-          <div className="section-header">
-            <h2 className="section-title">
-              <Droplets size={18} color="#00f2fe" /> Hydration / ดื่มน้ำวันนี้
-            </h2>
-            <span className="badge badge-accent">
-              {(consumedWaterMl / 1000).toFixed(2)} / {(waterTargetMl / 1000).toFixed(1)} L
-            </span>
-          </div>
-          <div className="quick-chips-row">
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => handleAddWater(250)}
-            >
-              +250 ml (1 แก้ว)
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => handleAddWater(500)}
-            >
-              +500 ml (1 ขวด)
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => handleAddWater(750)}
-            >
-              +750 ml (กระบอกซ้อม)
-            </button>
-          </div>
-        </section>
+      {/* =========================================================================
+          2. MIDDLE SECTION: STATISTICS GROUPED BAR CHART + QUICK ACTIONS CARD
+         ========================================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Left: Recharts 7-Day Grouped Bar Chart (2 cols) */}
+        <div className="lg:col-span-2 bg-white border border-[#EEEEEE] rounded-[24px] p-6 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-[#171717] tracking-tight">
+                7-Day Intake Statistics
+              </h3>
+              <p className="text-xs text-[#858585]">
+                Calorie intake compared to your daily budget
+              </p>
+            </div>
 
-        <section className="card">
-          <div className="section-header">
-            <h2 className="section-title">
-              <Activity size={18} color="#00f2fe" /> Training (ว่ายน้ำ & เวทเทรนนิ่ง)
-            </h2>
-            <button
-              type="button"
-              className="btn-link"
-              onClick={() => setShowWorkoutForm((v) => !v)}
-            >
-              {showWorkoutForm ? 'Close' : '+ Custom'}
-            </button>
+            {/* Legend matching Jobgio */}
+            <div className="flex items-center gap-4 text-xs font-medium text-[#858585]">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#171717]"></span>
+                <span>Consumed kcal</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#D4D4D8]"></span>
+                <span>Daily Target</span>
+              </div>
+            </div>
           </div>
 
-          <div className="quick-chips-row">
+          <div className="relative w-full h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={weeklyChartData}
+                margin={{ top: 25, right: 10, left: -20, bottom: 0 }}
+                barGap={4}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                <XAxis
+                  dataKey="dayLabel"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#858585', fontSize: 11 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#858585', fontSize: 11 }}
+                  tickFormatter={(v) => (v === 0 ? '0' : `${v}`)}
+                />
+                <Tooltip
+                  cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                  content={({ active, payload, label }: any) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-[#111111] text-white px-3 py-2 rounded-xl text-xs shadow-lg border border-neutral-800">
+                          <p className="font-semibold text-neutral-300 mb-1">{label}</p>
+                          <p className="text-white flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-white inline-block"></span>
+                            <span>Consumed:</span>
+                            <span className="font-bold">{payload[0].value} kcal</span>
+                          </p>
+                          <p className="text-neutral-400 flex items-center gap-1.5 mt-0.5">
+                            <span className="w-2 h-2 rounded-full bg-neutral-400 inline-block"></span>
+                            <span>Target:</span>
+                            <span className="font-bold text-neutral-300">{payload[1].value} kcal</span>
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+
+                {/* Consumed Calories - Near Black Bars */}
+                <Bar
+                  dataKey="consumedKcal"
+                  fill="#171717"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={16}
+                />
+
+                {/* Daily Target - Soft Gray Bars */}
+                <Bar
+                  dataKey="targetKcal"
+                  fill="#D4D4D8"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={16}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+
+            {/* Signature Black Pill Pin Callout above today's bar */}
+            <div
+              className="absolute pointer-events-none flex flex-col items-center"
+              style={{
+                left: '92%',
+                top: '6px',
+                transform: 'translateX(-50%)',
+              }}
+            >
+              <div className="bg-[#111111] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-md tracking-tight whitespace-nowrap">
+                {Math.round(summary.consumedCalories)} kcal
+              </div>
+              <div className="w-1.5 h-1.5 bg-[#111111] rounded-full mt-0.5"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Quick Actions & Sessions (Jobgio "Pending Approvals" style) */}
+        <div className="bg-white border border-[#EEEEEE] rounded-[24px] p-6 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-bold text-[#171717] tracking-tight">
+              Quick Actions & Logs
+            </h3>
             <button
               type="button"
-              className="food-chip"
-              onClick={() =>
-                handleQuickWorkout('Swimming (ว่ายน้ำ)', 60, 'high', 'Pool training 60m')
-              }
+              className="text-[#858585] hover:text-[#171717] transition-colors"
+              title="Quick Log"
             >
-              <Waves size={14} color="#00f2fe" />
-              <span>+ ว่ายน้ำ 60 นาที</span>
-            </button>
-            <button
-              type="button"
-              className="food-chip"
-              onClick={() =>
-                handleQuickWorkout(
-                  'Strength Training (เวทเทรนนิ่ง)',
-                  45,
-                  'high',
-                  'Weight training 45m'
-                )
-              }
-            >
-              <Dumbbell size={14} color="#14b8a6" />
-              <span>+ เวทเทรนนิ่ง 45 นาที</span>
-            </button>
-            <button
-              type="button"
-              className="food-chip"
-              onClick={onQuickLogWeight}
-            >
-              <Scale size={14} color="#38bdf8" />
-              <span>ชั่งน้ำหนัก ({profile.initialWeightKg}→{profile.targetWeightKg}kg)</span>
+              <MinusCircle className="w-5 h-5" />
             </button>
           </div>
 
+          <div className="flex flex-col divide-y divide-[#F5F5F5] flex-1 justify-center">
+            {/* Row 1: AI Camera Scanner */}
+            <div
+              onClick={onNavigateToScanner}
+              className="flex items-center justify-between py-3 group cursor-pointer hover:bg-neutral-50/80 -mx-2 px-2 rounded-xl transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-black text-white flex items-center justify-center shrink-0">
+                  <Camera className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-[#171717] group-hover:text-black">
+                    AI Photo Food Scan
+                  </span>
+                  <span className="text-[11px] text-[#858585]">
+                    Scan dish or nutrition label
+                  </span>
+                </div>
+              </div>
+              <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                <span>AI Ready</span>
+              </span>
+            </div>
+
+            {/* Row 2: Water Quick Add */}
+            <div className="flex items-center justify-between py-3 group -mx-2 px-2 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-cyan-500 text-white flex items-center justify-center shrink-0">
+                  <Droplets className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-[#171717]">
+                    Hydration Log
+                  </span>
+                  <span className="text-[11px] text-[#858585]">
+                    {consumedWaterMl} / {waterTargetMl} ml
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleQuickWater(250)}
+                  className="px-2 py-1 text-[11px] font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-full"
+                >
+                  +250ml
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickWater(500)}
+                  className="px-2 py-1 text-[11px] font-semibold text-white bg-black hover:bg-neutral-800 rounded-full shadow-2xs"
+                >
+                  +500ml
+                </button>
+              </div>
+            </div>
+
+            {/* Row 3: Workout Session */}
+            <div className="flex items-center justify-between py-3 group -mx-2 px-2 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-neutral-900 text-white flex items-center justify-center shrink-0">
+                  <Dumbbell className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-[#171717]">
+                    Workout Activity
+                  </span>
+                  <span className="text-[11px] text-[#858585]">
+                    {workoutLogs.length} sessions logged
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWorkoutForm(!showWorkoutForm)}
+                className="text-xs font-medium text-neutral-700 bg-neutral-100 hover:bg-neutral-200 px-3 py-1 rounded-full"
+              >
+                {showWorkoutForm ? 'Close' : '+ Log'}
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Workout Form */}
           {showWorkoutForm && (
-            <form
-              onSubmit={handleCustomWorkoutSubmit}
-              className="form-stack"
-              style={{ marginTop: '0.75rem' }}
-            >
-              <div className="form-grid-2">
+            <form onSubmit={handleCustomWorkoutSubmit} className="pt-3 border-t border-neutral-100 flex flex-col gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <select
-                  className="input-select"
                   value={workoutType}
                   onChange={(e) => setWorkoutType(e.target.value)}
+                  className="text-xs px-2 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg"
                 >
-                  <option value="Swimming (ว่ายน้ำ)">Swimming (ว่ายน้ำ)</option>
-                  <option value="Strength Training (เวทเทรนนิ่ง)">
-                    Strength Training (เวทเทรนนิ่ง)
-                  </option>
-                  <option value="Cardio / Running">Cardio / Running</option>
+                  <option value="Swimming (ว่ายน้ำ)">Swimming</option>
+                  <option value="Weight Training (เวทเทรนนิ่ง)">Weights</option>
+                  <option value="Running (วิ่ง)">Running</option>
+                  <option value="Cycling (ปั่นจักรยาน)">Cycling</option>
                 </select>
                 <input
                   type="number"
                   min="5"
                   max="300"
-                  className="input-text"
                   value={workoutDuration}
                   onChange={(e) => setWorkoutDuration(e.target.value)}
                   placeholder="Minutes"
+                  className="text-xs px-2 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg"
                 />
               </div>
-              <button type="submit" className="btn btn-primary btn-sm">
-                Save Session
+              <button
+                type="submit"
+                className="w-full py-1.5 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-full"
+              >
+                Save Workout
               </button>
             </form>
           )}
 
-          {workoutLogs.length > 0 && (
-            <div className="meal-items-list" style={{ marginTop: '0.5rem' }}>
-              {workoutLogs.map((w) => (
-                <div key={w.id} className="meal-item-row" style={{ padding: '0.4rem 0' }}>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>
-                    {w.activityType} ({w.durationMinutes} mins)
-                  </span>
-                  <button
-                    type="button"
-                    className="icon-btn icon-btn-danger"
-                    onClick={() => deleteActivityLogEntry(w.id)}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+          {/* Weight Log pill button */}
+          <div className="pt-3 border-t border-[#F5F5F5] flex items-center justify-between text-xs text-neutral-500">
+            <span>Goal: {profile.initialWeightKg} → {profile.targetWeightKg} kg</span>
+            <button
+              type="button"
+              onClick={onQuickLogWeight}
+              className="text-xs font-semibold text-neutral-900 hover:underline flex items-center gap-1"
+            >
+              <Scale className="w-3.5 h-3.5" />
+              <span>Weigh In</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Quick-Log Thai & Frequent Foods */}
-      <section className="card">
-        <div className="section-header">
-          <h2 className="section-title">Quick-Log อาหารไทย & เมนูที่ใช้บ่อย</h2>
-          <button
-            type="button"
-            className="btn-link"
-            onClick={() =>
-              onOpenConfirmMeal({
-                foodName: '',
-                ingredients: '',
-                servingGrams: 150,
-                calories: 0,
-                protein: 0,
-                carbohydrates: 0,
-                fat: 0,
-                category: 'lunch',
-                source: 'user_custom',
-                requiresExplicitConfirmation: false,
-              })
-            }
-          >
-            + Custom Meal
-          </button>
-        </div>
-        <div className="quick-chips-row">
-          {frequentFoods.slice(0, 8).map((food) => {
-            const servingKcal = Math.round(
-              (food.caloriesPer100g * food.defaultServingGrams) / 100
-            );
-            const shortName = food.name.split('/')[0].trim();
-            return (
-              <button
-                key={food.id}
-                type="button"
-                className="food-chip"
-                onClick={() => handleQuickAddCatalog(food)}
-              >
-                <Plus size={14} color="#00f2fe" />
-                <span>{shortName}</span>
-                <small>
-                  {food.defaultServingGrams}g · {servingKcal} kcal
-                </small>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Today's Logged Food Entries */}
-      <section className="card">
-        <div className="section-header">
-          <h2 className="section-title">
-            <Utensils size={18} color="#00f2fe" /> Today's Logged Food ({todayItems.length})
-          </h2>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => onNavigateToDiary()}
-          >
-            Open Full Diary
-          </button>
-        </div>
-
-        {todayItems.length === 0 ? (
-          <div className="empty-state">
-            <p className="empty-title">ยังไม่มีรายการอาหารที่บันทึกในวันนี้</p>
-            <p className="empty-desc">
-              กดปุ่ม Add Food, เลือกเมนูอาหารไทยด่วนด้านบน หรือใช้ AI Photo Scan เพื่อเริ่มบันทึก
-            </p>
+      {/* =========================================================================
+          3. BOTTOM SECTION: MANAGE FOOD LOGS TABLE (JOBGIO "MANAGE JOBS" STYLE)
+         ========================================================================= */}
+      <div className="bg-white border border-[#EEEEEE] rounded-[24px] p-6 shadow-xs flex flex-col gap-4">
+        {/* Table Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div>
+              <h3 className="text-lg font-bold text-[#171717] tracking-tight">
+                Manage Food Logs
+              </h3>
+              <p className="text-xs text-[#858585] mt-0.5">
+                {todayItems.length} meal items recorded today ({formatDisplayDate(todayBangkok)})
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigateToDiary()}
+              className="hidden md:flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-full transition-colors"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Full Diary</span>
+            </button>
           </div>
-        ) : (
-          <div className="meal-items-list">
-            {todayItems.map((item) => (
-              <div key={item.id} className="meal-item-row">
-                <div className="meal-item-info">
-                  <div className="meal-item-name">
-                    {item.foodNameSnapshot}
-                    <span className="source-pill">
-                      {item.sourceSnapshot === 'ai_confirmed' ? (
-                        'AI Vision'
-                      ) : (
-                        <>
-                          <CheckCircle2 size={11} /> {item.category}
-                        </>
-                      )}
-                    </span>
-                  </div>
-                  <div className="meal-item-macros">
-                    {item.grams}g · P: {item.protein}g · C: {item.carbohydrates}g · F:{' '}
-                    {item.fat}g
-                  </div>
-                </div>
-                <div className="meal-item-right">
-                  <span className="meal-item-kcal">{Math.round(item.calories)} kcal</span>
-                  <div className="icon-actions">
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search food name..."
+                className="pl-8 pr-3 py-1.5 text-xs bg-[#F9F9F9] border border-neutral-200 rounded-full focus:outline-none focus:ring-2 focus:ring-black focus:bg-white w-40 sm:w-48 transition-all"
+              />
+            </div>
+
+            {/* Meal Category Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#171717] bg-white border border-[#EEEEEE] rounded-full hover:bg-neutral-50 transition-colors shadow-2xs"
+              >
+                <span>{selectedMealCategory === 'All' ? 'Meal Type' : selectedMealCategory}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+              </button>
+
+              {categoryDropdownOpen && (
+                <div className="absolute right-0 mt-1 w-36 bg-white border border-neutral-200 rounded-2xl shadow-xl py-1 z-30">
+                  {['All', 'breakfast', 'lunch', 'dinner', 'snacks'].map((cat) => (
                     <button
+                      key={cat}
                       type="button"
-                      className="icon-btn"
-                      onClick={() => onEditMealItem(item)}
+                      onClick={() => {
+                        setSelectedMealCategory(cat);
+                        setCategoryDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-neutral-700 hover:bg-neutral-100 capitalize"
                     >
-                      <Edit3 size={14} />
+                      <span>{cat}</span>
+                      {selectedMealCategory === cat && <Check className="w-3 h-3 text-black" />}
                     </button>
-                    <button
-                      type="button"
-                      className="icon-btn icon-btn-danger"
-                      onClick={() => deleteMealItem(item.id)}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              </div>
-            ))}
+              )}
+            </div>
+
+            {/* Export CSV Button matching Jobgio */}
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-white bg-[#111111] hover:bg-black rounded-full transition-colors shadow-xs"
+            >
+              <span>Export</span>
+              <Download className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Add Custom Meal */}
+            <button
+              type="button"
+              onClick={() =>
+                onOpenConfirmMeal({
+                  foodName: '',
+                  ingredients: '',
+                  servingGrams: 150,
+                  calories: 0,
+                  protein: 0,
+                  carbohydrates: 0,
+                  fat: 0,
+                  category: 'lunch',
+                  source: 'user_custom',
+                  requiresExplicitConfirmation: false,
+                })
+              }
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-[#171717] bg-[#F5F5F5] hover:bg-neutral-200 rounded-full transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Food</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Bulk Selection Actions */}
+        {selectedItemIds.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-2 bg-neutral-900 text-white rounded-2xl text-xs">
+            <span>{selectedItemIds.length} items selected</span>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              className="px-3 py-1 bg-rose-700 hover:bg-rose-600 rounded-full flex items-center gap-1"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>Delete Selected</span>
+            </button>
           </div>
         )}
-      </section>
+
+        {/* Table Container */}
+        <div className="overflow-x-auto -mx-6 px-6">
+          <table className="w-full text-left text-xs text-[#171717] border-collapse min-w-[650px]">
+            <thead>
+              <tr className="border-b border-[#F0F0F0] text-[#858585] font-medium text-[11px]">
+                <th className="py-3 px-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    onChange={handleSelectAll}
+                    className="rounded-md border-neutral-300 text-black focus:ring-black cursor-pointer"
+                  />
+                </th>
+                <th className="py-3 px-3">Food Item</th>
+                <th className="py-3 px-3">Meal Category</th>
+                <th className="py-3 px-3">Portion</th>
+                <th className="py-3 px-3">Macros (P · C · F)</th>
+                <th className="py-3 px-3">Calories</th>
+                <th className="py-3 px-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F8F8F8]">
+              {filteredItems.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-neutral-400">
+                    No food entries recorded yet for today. Use AI Scan or Quick Add above!
+                  </td>
+                </tr>
+              ) : (
+                filteredItems.map((item) => {
+                  const isSelected = selectedItemIds.includes(item.id);
+                  const isActionOpen = actionMenuOpenId === item.id;
+
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`hover:bg-[#FAFAFA] transition-colors ${
+                        isSelected ? 'bg-neutral-50/70' : ''
+                      }`}
+                    >
+                      <td className="py-3 px-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectRow(item.id)}
+                          className="rounded-md border-neutral-300 text-black focus:ring-black cursor-pointer"
+                        />
+                      </td>
+
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-7 h-7 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-700 font-bold text-xs shrink-0">
+                            <Utensils className="w-3.5 h-3.5" />
+                          </span>
+                          <div>
+                            <span className="font-semibold text-[#171717] block">
+                              {item.foodNameSnapshot}
+                            </span>
+                            <span className="text-[10px] text-neutral-400">
+                              {item.sourceSnapshot === 'ai_confirmed' ? 'AI Vision' : 'Manual Entry'}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-3 px-3">
+                        <span
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium capitalize ${
+                            item.category === 'breakfast'
+                              ? 'bg-amber-50 text-amber-700'
+                              : item.category === 'lunch'
+                              ? 'bg-blue-50 text-blue-700'
+                              : item.category === 'dinner'
+                              ? 'bg-indigo-50 text-indigo-700'
+                              : 'bg-emerald-50 text-emerald-700'
+                          }`}
+                        >
+                          {item.category}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-3 text-[#858585]">{item.grams}g</td>
+
+                      <td className="py-3 px-3 text-[#858585]">
+                        <span className="text-neutral-900 font-medium">P: {item.protein}g</span> · C:{' '}
+                        {item.carbohydrates}g · F: {item.fat}g
+                      </td>
+
+                      <td className="py-3 px-3 font-semibold text-[#171717]">
+                        {Math.round(item.calories)} kcal
+                      </td>
+
+                      <td className="py-3 px-3 text-right relative">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActionMenuOpenId(isActionOpen ? null : item.id)
+                          }
+                          className="p-1 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-100"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+
+                        {isActionOpen && (
+                          <div className="absolute right-3 top-8 w-28 bg-white border border-neutral-200 rounded-xl shadow-xl py-1 z-30 text-left">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onEditMealItem(item);
+                                setActionMenuOpenId(null);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-neutral-700 hover:bg-neutral-100"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await deleteMealItem(item.id);
+                                setActionMenuOpenId(null);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Quick-Log Thai Foods Pills underneath Table */}
+        <div className="pt-3 border-t border-[#F5F5F5] flex flex-col gap-2">
+          <span className="text-xs font-bold text-neutral-700">
+            Quick-Log อาหารไทยยอดนิยม (1-Tap):
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {frequentFoods.slice(0, 8).map((food) => {
+              const servingKcal = Math.round(
+                (food.caloriesPer100g * food.defaultServingGrams) / 100
+              );
+              const shortName = food.name.split('/')[0].trim();
+              return (
+                <button
+                  key={food.id}
+                  type="button"
+                  onClick={() => handleQuickAddCatalog(food)}
+                  className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium bg-[#F5F5F5] hover:bg-neutral-200 text-[#171717] rounded-full transition-colors"
+                >
+                  <Plus className="w-3 h-3 text-neutral-500" />
+                  <span>{shortName}</span>
+                  <span className="text-neutral-400 text-[10px]">({servingKcal} kcal)</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
