@@ -9,6 +9,7 @@ import {
   calculateWeightTrend,
   calculateStreak,
   calculateEnergyBalance,
+  calculateNutritionTargetsFromProfile,
 } from './nutritionCalculator';
 
 describe('nutritionCalculator', () => {
@@ -204,6 +205,51 @@ describe('nutritionCalculator', () => {
       );
       expect(summary.consumedSodiumMg).toBe(1350);
       expect(summary.consumedSugarG).toBe(13.7);
+    });
+  });
+
+  describe('calculateNutritionTargetsFromProfile', () => {
+    it('calculates BMR, TDEE, Calorie Target, and Macros for fat loss', () => {
+      const result = calculateNutritionTargetsFromProfile({
+        weightKg: 88,
+        heightCm: 180,
+        age: 18,
+        sex: 'male',
+        activityLevel: 'high',
+        goalType: 'fat_loss',
+      });
+
+      expect(result.bmr).toBe(1920);
+      expect(result.tdee).toBe(3312);
+      expect(result.deficitOrSurplusKcal).toBeLessThan(0);
+      expect(result.calorieTarget).toBeLessThan(3312);
+      expect(result.proteinTargetG).toBe(170);
+      expect(result.fatTargetG).toBe(85);
+      expect(result.carbsTargetG).toBeGreaterThan(0);
+    });
+
+    it('calculates maintenance and muscle gain targets appropriately', () => {
+      const maintenance = calculateNutritionTargetsFromProfile({
+        weightKg: 70,
+        heightCm: 175,
+        age: 25,
+        sex: 'male',
+        activityLevel: 'moderate',
+        goalType: 'maintenance',
+      });
+      expect(maintenance.calorieTarget).toBe(maintenance.tdee);
+      expect(maintenance.deficitOrSurplusKcal).toBe(0);
+
+      const muscleGain = calculateNutritionTargetsFromProfile({
+        weightKg: 70,
+        heightCm: 175,
+        age: 25,
+        sex: 'male',
+        activityLevel: 'moderate',
+        goalType: 'muscle_gain',
+      });
+      expect(muscleGain.calorieTarget).toBeGreaterThan(muscleGain.tdee);
+      expect(muscleGain.deficitOrSurplusKcal).toBeGreaterThan(0);
     });
   });
 });

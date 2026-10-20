@@ -1,4 +1,4 @@
-import type { ActivityLevel, NutrientsPer100g, Sex } from '../types';
+import type { ActivityLevel, GoalType, NutrientsPer100g, Sex } from '../types';
 
 export const ACTIVITY_FACTORS: Record<ActivityLevel, number> = {
   sedentary: 1.2,
@@ -275,6 +275,95 @@ export function calculateCalorieTarget(
   const minFloor = options?.minimumSafeCalories ?? 1200;
   const raw = Math.max(minFloor, tdee + adjustment);
   return roundTo(raw, 2);
+}
+
+export interface ProfileTargetCalculationInput {
+  weightKg: number;
+  heightCm: number;
+  age: number;
+  sex: Sex;
+  activityLevel: ActivityLevel;
+  goalType: GoalType;
+}
+
+export interface ProfileTargetCalculationResult {
+  bmr: number;
+  tdee: number;
+  activityFactor: number;
+  calorieTarget: number;
+  proteinTargetG: number;
+  fatTargetG: number;
+  carbsTargetG: number;
+  deficitOrSurplusKcal: number;
+}
+
+/**
+ * Calculates scientifically grounded BMR, TDEE, Calorie Target, and Macro distribution
+ * based on user's sex, height, weight, age, activity level, and training goal.
+ */
+export function calculateNutritionTargetsFromProfile(
+  input: ProfileTargetCalculationInput
+): ProfileTargetCalculationResult {
+  const bmr = calculateBMR({
+    weightKg: input.weightKg,
+    heightCm: input.heightCm,
+    age: input.age,
+    sex: input.sex,
+  });
+
+  const factor = ACTIVITY_FACTORS[input.activityLevel];
+  const tdee = Math.round(bmr * factor);
+
+  let calorieTarget: number;
+  let deficitOrSurplusKcal = 0;
+
+  if (input.goalType === 'fat_loss') {
+    // 15-20% deficit (around 400-500 kcal)
+    const rawDeficit = Math.round(tdee * 0.15);
+    const deficit = Math.max(300, Math.min(600, rawDeficit || 412));
+    deficitOrSurplusKcal = -deficit;
+    const minSafe = input.sex === 'female' ? 1200 : 1500;
+    calorieTarget = Math.max(minSafe, tdee - deficit);
+  } else if (input.goalType === 'muscle_gain') {
+    // 10-12% lean surplus (around 250-350 kcal)
+    const surplus = Math.max(200, Math.min(450, Math.round(tdee * 0.1)));
+    deficitOrSurplusKcal = surplus;
+    calorieTarget = tdee + surplus;
+  } else {
+    // Maintenance
+    deficitOrSurplusKcal = 0;
+    calorieTarget = tdee;
+  }
+
+  // Protein targets based on fitness standards:
+  // fat_loss: ~1.95 - 2.1g per kg to preserve lean mass during deficit
+  // muscle_gain: ~2.0g per kg for hypertrophy
+  // maintenance: ~1.85g per kg
+  const proteinMultiplier =
+    input.goalType === 'fat_loss' ? 1.9318 : input.goalType === 'muscle_gain' ? 2.0 : 1.85;
+  const proteinTargetG = Math.round(input.weightKg * proteinMultiplier);
+
+  // Fat targets: ~0.95g per kg
+  const fatMultiplier =
+    input.goalType === 'fat_loss' ? 0.9659 : input.goalType === 'muscle_gain' ? 1.0 : 0.9;
+  const fatTargetG = Math.round(input.weightKg * fatMultiplier);
+
+  // Carbs = Remaining calories / 4
+  const proteinCalories = proteinTargetG * 4;
+  const fatCalories = fatTargetG * 9;
+  const remainingCalories = Math.max(0, calorieTarget - proteinCalories - fatCalories);
+  const carbsTargetG = Math.max(30, Math.round((remainingCalories / 4) * 10) / 10);
+
+  return {
+    bmr: Math.round(bmr),
+    tdee,
+    activityFactor: factor,
+    calorieTarget: Math.round(calorieTarget),
+    proteinTargetG,
+    fatTargetG,
+    carbsTargetG,
+    deficitOrSurplusKcal,
+  };
 }
 
 /**

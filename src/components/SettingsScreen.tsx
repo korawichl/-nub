@@ -18,7 +18,7 @@ import {
 import {
   ACTIVITY_FACTORS,
   calculateBMR,
-  calculateMacros,
+  calculateNutritionTargetsFromProfile,
   calculateTDEE,
 } from '../utils/nutritionCalculator';
 import { getFoodAnalysisProvider } from '../services/aiProvider';
@@ -107,28 +107,96 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     settings.groqApiKey
   );
 
-  const handleRecalculateFromFormula = () => {
-    const w = parseFloat(initialWeightKg);
-    const h = parseFloat(heightCm);
-    const a = parseFloat(age);
-    if (!Number.isFinite(w) || !Number.isFinite(h) || !Number.isFinite(a)) return;
+  // Live computed BMR, TDEE and recommended Calorie Target from profile form inputs
+  const currentWeightNum = parseFloat(initialWeightKg) || 0;
+  const currentHeightNum = parseFloat(heightCm) || 0;
+  const currentAgeNum = parseFloat(age) || 0;
+  const hasValidProfileInputs =
+    currentWeightNum > 0 && currentHeightNum > 0 && currentAgeNum > 0;
 
-    const newBmr = calculateBMR({ weightKg: w, heightCm: h, age: a, sex });
-    const newTdee = calculateTDEE(newBmr, activityLevel);
-    const cal = parseFloat(calorieTarget) || Math.max(1200, newTdee - 412);
-    const pro = parseFloat(proteinTargetG) || 170;
-    const fat = parseFloat(fatTargetG) || 85;
-    const macros = calculateMacros({
-      calorieTarget: cal,
-      proteinGrams: pro,
-      fatGrams: fat,
+  const liveCalculated = hasValidProfileInputs
+    ? calculateNutritionTargetsFromProfile({
+        weightKg: currentWeightNum,
+        heightCm: currentHeightNum,
+        age: currentAgeNum,
+        sex,
+        activityLevel,
+        goalType,
+      })
+    : null;
+
+  const recalculateAndApply = (override?: {
+    w?: number;
+    h?: number;
+    a?: number;
+    s?: Sex;
+    act?: ActivityLevel;
+    gt?: GoalType;
+  }) => {
+    const w = override?.w ?? parseFloat(initialWeightKg);
+    const h = override?.h ?? parseFloat(heightCm);
+    const a = override?.a ?? parseFloat(age);
+    const s = override?.s ?? sex;
+    const act = override?.act ?? activityLevel;
+    const gt = override?.gt ?? goalType;
+
+    if (!Number.isFinite(w) || w <= 0 || !Number.isFinite(h) || h <= 0 || !Number.isFinite(a) || a <= 0) {
+      return null;
+    }
+
+    const res = calculateNutritionTargetsFromProfile({
+      weightKg: w,
+      heightCm: h,
+      age: a,
+      sex: s,
+      activityLevel: act,
+      goalType: gt,
     });
 
-    setCarbsTargetG(String(macros.carbsGrams));
+    setCalorieTarget(String(res.calorieTarget));
+    setProteinTargetG(String(res.proteinTargetG));
+    setFatTargetG(String(res.fatTargetG));
+    setCarbsTargetG(String(res.carbsTargetG));
+
+    return res;
+  };
+
+  const handleRecalculateFromFormula = () => {
+    const res = recalculateAndApply();
+    if (!res) {
+      setStatusBanner({
+        type: 'error',
+        text: 'กรุณากรอกอายุ ส่วนสูง และน้ำหนักเริ่มต้นให้ถูกต้องก่อนคำนวณ',
+      });
+      return;
+    }
+
+    const goalLabel =
+      goalType === 'fat_loss'
+        ? `ลดไขมัน (Deficit ${res.deficitOrSurplusKcal} kcal)`
+        : goalType === 'muscle_gain'
+        ? `เพิ่มกล้ามเนื้อ (Surplus +${res.deficitOrSurplusKcal} kcal)`
+        : 'รักษาน้ำหนัก (Maintenance)';
+
     setStatusBanner({
       type: 'success',
-      text: `Formula calculated: BMR = ${newBmr} kcal/day, Est. TDEE = ${newTdee} kcal/day, Carbs = ${macros.carbsGrams} g/day.`,
+      text: `คำนวณแคลอรี่เป้าหมายใหม่สำเร็จ: BMR = ${res.bmr} kcal · TDEE (${activityLevel}) = ${res.tdee} kcal → แคลอรี่เป้าหมาย (${goalLabel}) = ${res.calorieTarget} kcal/วัน (โปรตีน ${res.proteinTargetG}g, ไขมัน ${res.fatTargetG}g, คาร์บ ${res.carbsTargetG}g) ถูกอัปเดตลงในช่องด้านล่างเรียบร้อยแล้ว`,
     });
+  };
+
+  const handleActivityLevelChange = (newLevel: ActivityLevel) => {
+    setActivityLevel(newLevel);
+    recalculateAndApply({ act: newLevel });
+  };
+
+  const handleGoalTypeChange = (newGoal: GoalType) => {
+    setGoalType(newGoal);
+    recalculateAndApply({ gt: newGoal });
+  };
+
+  const handleSexChange = (newSex: Sex) => {
+    setSex(newSex);
+    recalculateAndApply({ s: newSex });
   };
 
   const handleSaveProfileAndGoals = async (e: React.FormEvent) => {
@@ -504,11 +572,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       {/* Editable Profile & Nutrition Targets */}
       <form onSubmit={handleSaveProfileAndGoals} className="card form-stack">
         <div className="section-header">
-          <h2 className="section-title">
-            <User size={18} /> Personal Profile
-          </h2>
+          <div>
+            <h2 className="section-title">
+              <User size={18} /> Personal Profile
+            </h2>
+            <p className="screen-subtitle">
+              ข้อมูลร่างกายสำหรับคำนวณ BMR และ TDEE ตามหลักโภชนาการสากล
+            </p>
+          </div>
           <span className="badge badge-accent">
-            BMR: {goals.bmr} kcal · Est. TDEE: {goals.estimatedTdee} kcal
+            BMR: {liveCalculated ? liveCalculated.bmr : goals.bmr} kcal · TDEE: {liveCalculated ? liveCalculated.tdee : goals.estimatedTdee} kcal
           </span>
         </div>
 
@@ -521,7 +594,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               max="120"
               className="input-text"
               value={age}
-              onChange={(e) => setAge(e.target.value)}
+              onChange={(e) => {
+                setAge(e.target.value);
+                const nextAge = parseFloat(e.target.value);
+                if (nextAge > 0) recalculateAndApply({ a: nextAge });
+              }}
               required
             />
           </div>
@@ -531,7 +608,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <select
               className="input-select"
               value={sex}
-              onChange={(e) => setSex(e.target.value as Sex)}
+              onChange={(e) => handleSexChange(e.target.value as Sex)}
             >
               <option value="male">Male (+5)</option>
               <option value="female">Female (-161)</option>
@@ -547,7 +624,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               max="250"
               className="input-text"
               value={heightCm}
-              onChange={(e) => setHeightCm(e.target.value)}
+              onChange={(e) => {
+                setHeightCm(e.target.value);
+                const nextHeight = parseFloat(e.target.value);
+                if (nextHeight > 0) recalculateAndApply({ h: nextHeight });
+              }}
               required
             />
           </div>
@@ -563,7 +644,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               max="350"
               className="input-text"
               value={initialWeightKg}
-              onChange={(e) => setInitialWeightKg(e.target.value)}
+              onChange={(e) => {
+                setInitialWeightKg(e.target.value);
+                const nextWeight = parseFloat(e.target.value);
+                if (nextWeight > 0) recalculateAndApply({ w: nextWeight });
+              }}
               required
             />
           </div>
@@ -587,11 +672,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <select
               className="input-select"
               value={goalType}
-              onChange={(e) => setGoalType(e.target.value as GoalType)}
+              onChange={(e) => handleGoalTypeChange(e.target.value as GoalType)}
             >
-              <option value="fat_loss">Fat Loss</option>
-              <option value="maintenance">Maintenance</option>
-              <option value="muscle_gain">Muscle Gain</option>
+              <option value="fat_loss">Fat Loss (ลดไขมัน/ลดน้ำหนัก)</option>
+              <option value="maintenance">Maintenance (รักษาน้ำหนัก)</option>
+              <option value="muscle_gain">Muscle Gain (เพิ่มกล้ามเนื้อ)</option>
             </select>
           </div>
         </div>
@@ -603,14 +688,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               className="input-select"
               value={activityLevel}
               onChange={(e) =>
-                setActivityLevel(e.target.value as ActivityLevel)
+                handleActivityLevelChange(e.target.value as ActivityLevel)
               }
             >
-              <option value="sedentary">Sedentary (1.2)</option>
-              <option value="light">Light (1.375)</option>
-              <option value="moderate">Moderate (1.55)</option>
-              <option value="high">High (1.725)</option>
-              <option value="extreme">Extreme (1.9)</option>
+              <option value="sedentary">Sedentary ไม่ออกกำลังกาย (x1.2)</option>
+              <option value="light">Light ออกกำลังกายเบา 1-3 วัน/สัปดาห์ (x1.375)</option>
+              <option value="moderate">Moderate ออกกำลังกายปานกลาง 3-5 วัน/สัปดาห์ (x1.55)</option>
+              <option value="high">High ออกกำลังกายหนัก 6-7 วัน/สัปดาห์ (x1.725)</option>
+              <option value="extreme">Extreme นักกีฬา/งานใช้แรงกายหนักมาก (x1.9)</option>
             </select>
           </div>
 
@@ -640,10 +725,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <div className="section-header">
           <div>
             <h2 className="section-title">
-              <Target size={18} /> Editable Calorie & Macro Targets
+              <Target size={18} /> Editable Calorie & Macro Targets (แคลอรี่และสารอาหารที่ปรับแก้ได้)
             </h2>
             <p className="screen-subtitle">
-              Mifflin–St Jeor estimates. Adjust freely anytime.
+              คำนวณจาก TDEE และเป้าหมายให้อัตโนมัติ พร้อมให้คุณพิมพ์แก้ไขตัวเลขเองได้อย่างอิสระ
             </p>
           </div>
           <button
@@ -651,9 +736,32 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             className="btn btn-secondary btn-sm"
             onClick={handleRecalculateFromFormula}
           >
-            <RefreshCw size={14} /> Recalculate Remaining Carbs
+            <RefreshCw size={14} /> Recalculate Targets (คำนวณใหม่)
           </button>
         </div>
+
+        {liveCalculated && (
+          <div className="p-3.5 bg-[#F0F4FF] rounded-2xl border border-[#E9EAF2] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+            <div className="flex items-center gap-2 flex-wrap text-[#20243A]">
+              <span className="font-bold text-[#6258F5]">คำนวณตามสูตร TDEE:</span>
+              <span>BMR: <strong>{liveCalculated.bmr}</strong> kcal</span>
+              <span className="text-[#858BA0]">•</span>
+              <span>TDEE: <strong>{liveCalculated.tdee}</strong> kcal</span>
+              <span className="text-[#858BA0]">•</span>
+              <span>
+                แคลอรี่เป้าหมาย ({goalType === 'fat_loss' ? 'ลดไขมัน' : goalType === 'muscle_gain' ? 'เพิ่มกล้ามเนื้อ' : 'รักษาน้ำหนัก'}):{' '}
+                <strong className="text-[#6258F5] text-sm">{liveCalculated.calorieTarget} kcal/วัน</strong>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleRecalculateFromFormula}
+              className="px-3 py-1 bg-[#6258F5] hover:bg-[#756BFF] text-white rounded-lg font-bold text-[11px] transition-colors shadow-2xs shrink-0 self-start sm:self-auto cursor-pointer"
+            >
+              อัปเดตลงช่องด้านล่าง ➜
+            </button>
+          </div>
+        )}
 
         <div className="form-grid-4">
           <div className="form-field">
