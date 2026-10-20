@@ -131,29 +131,50 @@ export function validateFoodAnalysisResult(raw: unknown): FoodAnalysisResult {
   };
 }
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+export interface CompressedImageResult {
+  blob: Blob;
+  base64: string;
+  mimeType: string;
+  originalSize: number;
+  compressedSize: number;
+  compressionRatio: number;
+}
+
 /**
- * Compresses and resizes a photo client-side before sending to AI Vision models.
- * Reduces 2-5MB camera photos down to ~120KB JPEG so free-tier vision models respond in 1-2s without hitting token limits.
+ * Automatically compresses and resizes a photo client-side before sending to AI Vision models.
+ * Reduces 2-5MB smartphone photos down to ~40KB-70KB JPEG with 768px max dimension.
+ * Keeps food visual details crisp while ensuring instantaneous upload and avoiding network/token bottleneck.
  */
-async function compressImageBlobToBase64(
+export async function compressImageBlob(
   blob: Blob,
-  maxDimension: number = 512,
-  quality: number = 0.65
-): Promise<{ base64: string; mimeType: string }> {
+  maxDimension: number = 768,
+  quality: number = 0.72
+): Promise<CompressedImageResult> {
+  const originalSize = blob.size;
+
   if (typeof document === 'undefined' || typeof Image === 'undefined') {
-    // Node/Test environment fallback
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const res = reader.result as string;
-        resolve({
-          base64: res.split(',')[1] || '',
-          mimeType: blob.type || 'image/jpeg',
-        });
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    // Node/Vitest test environment fallback
+    const arrayBuffer = await blob.arrayBuffer();
+    const base64 = arrayBufferToBase64(arrayBuffer);
+
+    return {
+      blob,
+      base64,
+      mimeType: blob.type || 'image/jpeg',
+      originalSize,
+      compressedSize: originalSize,
+      compressionRatio: 0,
+    };
   }
 
   return new Promise((resolve, reject) => {
@@ -172,19 +193,88 @@ async function compressImageBlobToBase64(
         }
       }
       const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = Math.max(1, width);
+      canvas.height = Math.max(1, height);
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         reject(new Error('Canvas context unavailable'));
         return;
       }
-      ctx.drawImage(img, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL('image/jpeg', quality);
-      resolve({
-        base64: dataUrl.split(',')[1] || '',
-        mimeType: 'image/jpeg',
-      });
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      if (typeof canvas.toBlob === 'function') {
+        canvas.toBlob(
+          async (compressedBlob) => {
+            if (!compressedBlob) {
+              const dataUrl = canvas.toDataURL('image/jpeg', quality);
+              const base64 = dataUrl.split(',')[1] || '';
+              const approxBytes = Math.round((base64.length * 3) / 4);
+              resolve({
+                blob,
+                base64,
+                mimeType: 'image/jpeg',
+                originalSize,
+                compressedSize: approxBytes,
+                compressionRatio: Math.max(0, (originalSize - approxBytes) / (originalSize || 1)),
+              });
+              return;
+            }
+
+            try {
+              if (typeof FileReader !== 'undefined') {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  const dataUrl = (reader.result as string) || '';
+                  const base64 = dataUrl.split(',')[1] || '';
+                  resolve({
+                    blob: compressedBlob,
+                    base64,
+                    mimeType: 'image/jpeg',
+                    originalSize,
+                    compressedSize: compressedBlob.size,
+                    compressionRatio: Math.max(
+                      0,
+                      (originalSize - compressedBlob.size) / (originalSize || 1)
+                    ),
+                  });
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(compressedBlob);
+              } else {
+                const arrayBuffer = await compressedBlob.arrayBuffer();
+                const base64 = arrayBufferToBase64(arrayBuffer);
+                resolve({
+                  blob: compressedBlob,
+                  base64,
+                  mimeType: 'image/jpeg',
+                  originalSize,
+                  compressedSize: compressedBlob.size,
+                  compressionRatio: Math.max(
+                    0,
+                    (originalSize - compressedBlob.size) / (originalSize || 1)
+                  ),
+                });
+              }
+            } catch (err) {
+              reject(err);
+            }
+          },
+          'image/jpeg',
+          quality
+        );
+      } else {
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        const base64 = dataUrl.split(',')[1] || '';
+        const approxBytes = Math.round((base64.length * 3) / 4);
+        resolve({
+          blob,
+          base64,
+          mimeType: 'image/jpeg',
+          originalSize,
+          compressedSize: approxBytes,
+          compressionRatio: Math.max(0, (originalSize - approxBytes) / (originalSize || 1)),
+        });
+      }
     };
     img.onerror = (err) => {
       URL.revokeObjectURL(url);
@@ -192,6 +282,21 @@ async function compressImageBlobToBase64(
     };
     img.src = url;
   });
+}
+
+/**
+ * Compresses and resizes a photo client-side before sending to AI Vision models.
+ */
+export async function compressImageBlobToBase64(
+  blob: Blob,
+  maxDimension: number = 768,
+  quality: number = 0.72
+): Promise<{ base64: string; mimeType: string }> {
+  const result = await compressImageBlob(blob, maxDimension, quality);
+  return {
+    base64: result.base64,
+    mimeType: result.mimeType,
+  };
 }
 
 const NUTRITION_VISION_PROMPT = `Analyze this food or drink photo in detail. Identify the dish/beverage (use Thai + English name if it is Thai food or drink) and estimate its serving weight in grams, total calories, macronutrients (protein, carbohydrates, fat), sodium in mg, and sugar in grams. Always provide realistic non-zero estimates for fat, sugar, and sodium based on the ingredients, cooking method (stir-fried, soup, sauce, etc.).
@@ -258,12 +363,7 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
 
   constructor(apiKey?: string, preferredModel?: string) {
     this.apiKey = (apiKey || '').trim();
-    const rawModel = (preferredModel || 'gemini-2.5-flash').trim();
-    // Prefer high-speed free-tier Flash models (gemini-2.5-flash, gemini-3.5-flash-lite, gemini-3.8-flash)
-    this.preferredModel =
-      rawModel.includes('pro') || rawModel.includes('argon')
-        ? 'gemini-2.5-flash'
-        : rawModel;
+    this.preferredModel = (preferredModel || 'gemini-2.5-flash').trim();
     this.status = this.apiKey ? 'ready' : 'not_configured';
   }
 
@@ -276,12 +376,12 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
       return 'Google AI Studio API Key is not configured. Enter your key in Settings.';
     }
     if (this.status === 'processing') {
-      return `Analyzing food image with ${this.preferredModel} (Auto-Failover active)...`;
+      return `Analyzing food image with ${this.preferredModel} (Thinking Mode & Auto-Failover active)...`;
     }
     if (this.status === 'failed') {
       return 'Last analysis request failed. Check your API key or internet connection.';
     }
-    return `Ready (${this.preferredModel} + Multi-Model Pro/Flash Auto-Failover).`;
+    return `Ready (${this.preferredModel} + Thinking Mode & Multi-Model Auto-Failover).`;
   }
 
   async analyzeImage(imageBlob: Blob): Promise<FoodAnalysisResult> {
@@ -290,22 +390,20 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
       throw new Error('API key is not configured.');
     }
 
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && navigator.onLine === false) {
       this.status = 'failed';
       throw new Error('You are offline. AI analysis requires internet connection.');
     }
 
     this.status = 'processing';
     try {
+      // Automatically compress client-side to ~40-70KB JPEG
       const { base64, mimeType } = await compressImageBlobToBase64(imageBlob);
 
-      // Fast vision models with thinkingBudget: 0 for 1-2s turbo response
-      const rawPreferred = (this.preferredModel || '').trim();
-      const isPro = rawPreferred.includes('pro');
-
+      const preferred = this.preferredModel || 'gemini-2.5-flash';
       const modelsToTry = [
-        !isPro && rawPreferred ? rawPreferred : 'gemini-2.5-flash',
-        'gemini-2.5-flash-lite',
+        preferred,
+        'gemini-2.5-flash',
         'gemini-3.5-flash-lite',
         'gemini-3.8-flash',
         'gemini-1.5-flash',
@@ -315,9 +413,10 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
 
       for (const modelName of modelsToTry) {
         try {
-          const isGemma = modelName.startsWith('gemma-');
           const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.apiKey}`;
 
+          // Thinking mode enabled as dynamic thinking. Clean generationConfig with application/json.
+          // maxOutputTokens is generous (4096) so thinking tokens never truncate the JSON output.
           const payload: Record<string, unknown> = {
             contents: [
               {
@@ -332,22 +431,17 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
                 ],
               },
             ],
-            generationConfig: isGemma
-              ? { temperature: 0.1, maxOutputTokens: 800 }
-              : {
-                  response_mime_type: 'application/json',
-                  responseMimeType: 'application/json',
-                  temperature: 0.1,
-                  maxOutputTokens: 800,
-                  thinking_config: { thinking_budget: 0 },
-                  thinkingConfig: { thinkingBudget: 0 },
-                },
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.2,
+              maxOutputTokens: 4096,
+            },
           };
 
           const controller = new AbortController();
           const timeoutId = setTimeout(
-            () => controller.abort(new Error('Request timed out after 8s')),
-            8000
+            () => controller.abort(new Error(`Request timed out after 30s (${modelName})`)),
+            30000
           );
 
           let response: Response;
@@ -373,13 +467,19 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
           const resData = await response.json();
           const parts: Array<{ text?: string; thought?: boolean }> =
             resData.candidates?.[0]?.content?.parts || [];
-          const textPart =
-            parts.find((p) => typeof p.text === 'string' && !p.thought) ||
-            parts[parts.length - 1];
-          const rawText = textPart?.text || '';
+
+          // In thinking mode, parts with thought: true contain reasoning.
+          // Extract the pure final text parts for valid JSON parsing.
+          const nonThoughtText = parts
+            .filter((p) => !p.thought && typeof p.text === 'string' && p.text.trim().length > 0)
+            .map((p) => p.text)
+            .join('\n')
+            .trim();
+
+          const rawText = nonThoughtText || parts[parts.length - 1]?.text || '';
 
           if (!rawText) {
-            errors.push(`${modelName}: Empty response`);
+            errors.push(`${modelName}: Empty response candidate`);
             continue;
           }
 
@@ -435,18 +535,16 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
       throw new Error('Please enter a food description or meal name.');
     }
 
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && navigator.onLine === false) {
       this.status = 'failed';
       throw new Error('You are offline. AI analysis requires internet connection.');
     }
 
     this.status = 'processing';
-    const rawPreferred = (this.preferredModel || '').trim();
-    const isPro = rawPreferred.includes('pro');
-
+    const preferred = this.preferredModel || 'gemini-2.5-flash';
     const modelsToTry = [
-      !isPro && rawPreferred ? rawPreferred : 'gemini-2.5-flash',
-      'gemini-2.5-flash-lite',
+      preferred,
+      'gemini-2.5-flash',
       'gemini-3.5-flash-lite',
       'gemini-3.8-flash',
       'gemini-1.5-flash',
@@ -472,23 +570,17 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
     const errors: string[] = [];
     for (const modelName of modelsToTry) {
       try {
-        const isGemma = modelName.startsWith('gemma-');
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.apiKey}`;
         const payload = {
           contents: [{ parts: [{ text: fullInstruction }] }],
-          generationConfig: isGemma
-            ? { temperature: 0.1, maxOutputTokens: 800 }
-            : {
-                response_mime_type: 'application/json',
-                responseMimeType: 'application/json',
-                temperature: 0.1,
-                maxOutputTokens: 800,
-                thinking_config: { thinking_budget: 0 },
-                thinkingConfig: { thinkingBudget: 0 },
-              },
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.2,
+            maxOutputTokens: 4096,
+          },
         };
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(new Error('Timed out')), 8000);
+        const timeoutId = setTimeout(() => controller.abort(new Error('Timed out')), 25000);
         let response: Response;
         try {
           response = await fetch(endpoint, {
@@ -510,10 +602,12 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
         const resData = await response.json();
         const parts: Array<{ text?: string; thought?: boolean }> =
           resData.candidates?.[0]?.content?.parts || [];
-        const textPart =
-          parts.find((p) => typeof p.text === 'string' && !p.thought) ||
-          parts[parts.length - 1];
-        const rawText = textPart?.text || '';
+        const nonThoughtText = parts
+          .filter((p) => !p.thought && typeof p.text === 'string' && p.text.trim().length > 0)
+          .map((p) => p.text)
+          .join('\n')
+          .trim();
+        const rawText = nonThoughtText || parts[parts.length - 1]?.text || '';
         if (!rawText) continue;
 
         const parsed = parseJsonFromModelText(rawText);
@@ -647,7 +741,7 @@ export class BackendProxyFoodAnalysisProvider implements FoodAnalysisProvider {
       throw new Error('Backend proxy endpoint is not configured.');
     }
 
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && navigator.onLine === false) {
       this.status = 'failed';
       throw new Error(
         'You appear to be offline. Optional AI image analysis requires an active network connection to reach your proxy endpoint.'

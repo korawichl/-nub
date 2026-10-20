@@ -491,13 +491,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     onChange={(e) => setGeminiModel(e.target.value)}
                   >
                     <option value="gemini-2.5-flash">
-                      Gemini 2.5 Flash (แนะนำ: เสถียร แม่นยำสูง & ประมวลผลไวใน 1-2 วินาที)
+                      Gemini 2.5 Flash (แนะนำ: เสถียร แม่นยำสูงด้วย Thinking Mode)
                     </option>
                     <option value="gemini-3.5-flash-lite">
-                      Gemini 3.5 Flash Lite (เร็วที่สุด: โควตาฟรีสูง & วิเคราะห์ไวมาก)
+                      Gemini 3.5 Flash Lite (เร็วที่สุด: โควตาฟรีสูง & วิเคราะห์ไว)
                     </option>
                     <option value="gemini-3.8-flash">
-                      Gemini 3.8 Flash (รุ่นล่าสุด ปิด Thinking วิเคราะห์ทันใจ)
+                      Gemini 3.8 Flash (รุ่นล่าสุด วิเคราะห์แม่นยำด้วย Thinking Mode)
                     </option>
                     <option value="gemini-2.5-flash-lite">
                       Gemini 2.5 Flash Lite (น้ำหนักเบาและประหยัดแบนด์วิดท์)

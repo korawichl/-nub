@@ -5,7 +5,7 @@ import type {
   FoodCatalogItem,
   MealCategory,
 } from '../types';
-import { getFoodAnalysisProvider } from '../services/aiProvider';
+import { getFoodAnalysisProvider, compressImageBlob, type CompressedImageResult } from '../services/aiProvider';
 import { db } from '../db/database';
 import { getBangkokDateString } from '../utils/date';
 import { calculateFoodNutrition, estimateRoughNutrition } from '../utils/nutritionCalculator';
@@ -48,6 +48,8 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [compressedInfo, setCompressedInfo] = useState<CompressedImageResult | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [mealCategory, setMealCategory] = useState<MealCategory>('lunch');
   const [scanState, setScanState] = useState<
     'idle' | 'loading' | 'success' | 'error'
@@ -141,7 +143,7 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
     };
   }, [previewUrl]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -154,6 +156,22 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
     setPreviewUrl(nextUrl);
     setScanState('idle');
     setErrorMessage(null);
+    setCompressedInfo(null);
+    setIsCompressing(true);
+
+    try {
+      // Automatically compress client-side to lightweight JPEG
+      const res = await compressImageBlob(file, 768, 0.72);
+      setCompressedInfo(res);
+      const optimizedFile = new File([res.blob], file.name, {
+        type: res.mimeType,
+      });
+      setSelectedFile(optimizedFile);
+    } catch (err) {
+      console.warn('Auto compression fallback note:', err);
+    } finally {
+      setIsCompressing(false);
+    }
   };
 
   const handleClearImage = () => {
@@ -162,6 +180,7 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
     }
     setSelectedFile(null);
     setPreviewUrl(null);
+    setCompressedInfo(null);
     setScanState('idle');
     setErrorMessage(null);
   };
@@ -404,10 +423,25 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
                 className="scanner-preview-img"
               />
             </div>
-            <div className="preview-meta-bar">
-              <span>
-                {selectedFile?.name} ({Math.round((selectedFile?.size || 0) / 1024)} KB)
-              </span>
+            <div className="preview-meta-bar flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div className="flex flex-col">
+                <span className="font-semibold text-sm truncate max-w-[280px]">
+                  {selectedFile?.name || 'Food Photo'}
+                </span>
+                {compressedInfo ? (
+                  <span className="text-xs text-[#059669] dark:text-[#34D399] font-medium flex items-center gap-1">
+                    <Sparkles size={13} /> บีบอัดอัตโนมัติ: {Math.round(compressedInfo.originalSize / 1024)} KB → {Math.round(compressedInfo.compressedSize / 1024)} KB (ประหยัด {Math.round(compressedInfo.compressionRatio * 100)}%)
+                  </span>
+                ) : isCompressing ? (
+                  <span className="text-xs text-[var(--color-text-muted)] flex items-center gap-1">
+                    <Loader2 size={12} className="spin" /> กำลังบีบอัดรูปภาพอัตโนมัติ...
+                  </span>
+                ) : (
+                  <span className="text-xs text-[var(--color-text-muted)]">
+                    {Math.round((selectedFile?.size || 0) / 1024)} KB
+                  </span>
+                )}
+              </div>
               <button
                 type="button"
                 className="btn btn-danger btn-sm"
@@ -422,16 +456,16 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
                 <button
                   type="button"
                   className="btn btn-primary btn-full min-h-[48px]"
-                  disabled={scanState === 'loading'}
+                  disabled={scanState === 'loading' || isCompressing}
                   onClick={handleRunAiAnalysis}
                 >
                   {scanState === 'loading' ? (
                     <>
-                      <Loader2 size={18} className="spin" /> Analyzing Photo (Auto-Failover Active)...
+                      <Loader2 size={18} className="spin" /> วิเคราะห์ด้วย Thinking Mode & Auto-Failover...
                     </>
                   ) : (
                     <>
-                      <Sparkles size={18} /> Analyze Photo with Free AI Vision
+                      <Sparkles size={18} /> Analyze Photo with Free AI Vision (Thinking Mode)
                     </>
                   )}
                 </button>
