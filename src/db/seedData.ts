@@ -62,7 +62,7 @@ export function createInitialSettings(): AppSettings {
     id: DEFAULT_SETTINGS_ID,
     theme: 'dark',
     timezone: BANGKOK_TIMEZONE,
-    aiProviderId: 'none',
+    aiProviderId: 'free_builtin',
     updatedAt: new Date().toISOString(),
   };
 }

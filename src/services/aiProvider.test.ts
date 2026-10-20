@@ -2,10 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   BackendProxyFoodAnalysisProvider,
   DirectGeminiFoodAnalysisProvider,
+  FreeBuiltInVisionProvider,
   UnconfiguredFoodAnalysisProvider,
+  cleanOcrFoodText,
   compressImageBlob,
   getFoodAnalysisProvider,
   parseJsonFromModelText,
+  synthesizeNutritionFromVisionAndOcr,
   validateFoodAnalysisResult,
 } from './aiProvider';
 import { generateMealItemsCsv, validateBackupPayload } from '../db/backup';
@@ -21,6 +24,24 @@ describe('aiProvider', () => {
     await expect(provider.analyzeImage(dummyBlob)).rejects.toThrow(
       /AI analysis is unavailable/
     );
+  });
+
+  it('returns FreeBuiltInVisionProvider with status ready when free_builtin is selected', () => {
+    const provider = getFoodAnalysisProvider('free_builtin');
+    expect(provider).toBeInstanceOf(FreeBuiltInVisionProvider);
+    expect(provider.getStatus()).toBe('ready');
+  });
+
+  it('cleans OCR text by preserving Thai food names and removing mobile UI chrome', () => {
+    const rawOcr =
+      '23:01 น. | nub-p37n.onrender.com | ชานมคามิเลีย | Screenshot_20261020_230016_Google.jpg | บีบอัดอัตโนมัติ: 956 KB -> 57 KB | Remove Photo | Analyze Photo with Free AI Vision';
+    const cleaned = cleanOcrFoodText(rawOcr);
+    expect(cleaned).toBe('ชานมคามิเลีย');
+
+    const synthesized = synthesizeNutritionFromVisionAndOcr(rawOcr, 'A cup of milk tea');
+    expect(synthesized.mealName).toContain('ชานมคามิเลีย');
+    expect(synthesized.estimatedCalories).toBeGreaterThan(0);
+    expect(synthesized.requiresUserConfirmation).toBe(true);
   });
 
   it('returns BackendProxyFoodAnalysisProvider when endpoint is configured', () => {

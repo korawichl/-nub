@@ -37,8 +37,13 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
   onOpenConfirmMeal,
   onNavigateToDiary,
 }) => {
+  const effectiveProviderId =
+    !settings.aiProviderId || settings.aiProviderId === 'none'
+      ? 'free_builtin'
+      : settings.aiProviderId;
+
   const provider = getFoodAnalysisProvider(
-    settings.aiProviderId,
+    effectiveProviderId,
     settings.aiBackendEndpoint,
     settings.geminiApiKey,
     settings.geminiModel,

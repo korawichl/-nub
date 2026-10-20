@@ -466,17 +466,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 value={aiProviderId}
                 onChange={(e) => setAiProviderId(e.target.value)}
               >
-                <option value="none">
-                  Disabled / Local Manual Mode (No API Key Required)
+                <option value="free_builtin">
+                  Free Built-in AI Vision (ฟรี 100% ไม่ต้องใส่ API Key - แนะนำ)
                 </option>
                 <option value="direct_gemini">
-                  Google AI Studio Vision (Pro & Flash Auto-Failover)
+                  Google AI Studio Vision + Free Built-in Auto-Failover
                 </option>
                 <option value="groq_free">
                   Groq Cloud Free Vision (Llama 4 Scout 17B Vision ฟรี)
                 </option>
                 <option value="backend_proxy">
                   Server-Side Proxy Endpoint (Official API Adapter)
+                </option>
+                <option value="none">
+                  Local Manual Mode
                 </option>
               </select>
             </div>
@@ -490,32 +493,35 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     value={geminiModel}
                     onChange={(e) => setGeminiModel(e.target.value)}
                   >
-                    <option value="gemini-2.5-flash">
-                      Gemini 2.5 Flash (แนะนำ: เสถียร แม่นยำสูงด้วย Thinking Mode)
+                    <option value="gemini-3.6-flash">
+                      Gemini 3.6 Flash (แนะนำ: เสถียร แม่นยำสูงด้วย Thinking Mode)
+                    </option>
+                    <option value="gemini-3.5-flash">
+                      Gemini 3.5 Flash (วิเคราะห์อาหารไทยแม่นยำ & โควตาฟรีสูง)
                     </option>
                     <option value="gemini-3.5-flash-lite">
                       Gemini 3.5 Flash Lite (เร็วที่สุด: โควตาฟรีสูง & วิเคราะห์ไว)
                     </option>
+                    <option value="gemma-4-26b-a4b-it">
+                      Gemma 4 26B Vision (โมเดลเปิดฟรี แยกโควตาอิสระ)
+                    </option>
                     <option value="gemini-3.8-flash">
                       Gemini 3.8 Flash (รุ่นล่าสุด วิเคราะห์แม่นยำด้วย Thinking Mode)
-                    </option>
-                    <option value="gemini-2.5-flash-lite">
-                      Gemini 2.5 Flash Lite (น้ำหนักเบาและประหยัดแบนด์วิดท์)
                     </option>
                   </select>
                 </div>
 
                 <div className="form-field">
-                  <label className="field-label">Google AI Studio API Key</label>
+                  <label className="field-label">Google AI Studio API Key (ไม่บังคับ - มีระบบฟรีสำรองในตัว)</label>
                   <input
                     type="password"
                     className="input-text"
-                    placeholder="AQ... หรือ AIzaSy..."
+                    placeholder="AIzaSy... (ปล่อยว่างได้ ระบบจะใช้ Free AI ในตัวแทน)"
                     value={geminiApiKey}
                     onChange={(e) => setGeminiApiKey(e.target.value)}
                   />
                   <small className="field-hint">
-                    เลือกได้ทั้งตระกูล Pro และ Flash ระบบจะลองโมเดลที่คุณเลือกก่อน และหากคิวเต็มจะสลับไปโมเดลที่พร้อมใช้งาน (`3.5-flash-lite` / `3.6-flash` / `gemma-4-26b`) ให้ทันทีโดยไม่ล่ม
+                    หากคีย์หมดอายุ โควต้าเต็ม หรือเซิร์ฟเวอร์ Google หนาแน่น ระบบจะสลับไปใช้ Free Built-in AI Vision (Florence-2 + Thai OCR + Reasoning AI) ให้โดยอัตโนมัติ 100%
                   </small>
                 </div>
               </>

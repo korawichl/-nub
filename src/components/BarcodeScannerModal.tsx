@@ -559,8 +559,12 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     setAiError(null);
 
     try {
+      const effectiveProviderId =
+        !settings?.aiProviderId || settings.aiProviderId === 'none'
+          ? 'free_builtin'
+          : settings.aiProviderId;
       const provider = getFoodAnalysisProvider(
-        settings?.aiProviderId || 'gemini-direct',
+        effectiveProviderId,
         settings?.aiBackendEndpoint,
         settings?.geminiApiKey,
         settings?.geminiModel,
