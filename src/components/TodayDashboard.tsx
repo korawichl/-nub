@@ -1460,6 +1460,7 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
         isOpen={isBarcodeModalOpen}
         onClose={() => setIsBarcodeModalOpen(false)}
         onProductFound={onOpenConfirmMeal}
+        settings={settings}
       />
 
       {/* Share Daily Summary Card Modal */}

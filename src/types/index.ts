@@ -161,6 +161,7 @@ export interface ConfirmMealDraft {
   fat: number;
   sodiumMg?: number;
   sugarG?: number;
+  barcode?: string;
   category: MealCategory;
   source: FoodSourceType;
   uncertainties?: string[];

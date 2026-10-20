@@ -9,6 +9,7 @@ import { getFoodAnalysisProvider } from '../services/aiProvider';
 import { db } from '../db/database';
 import { getBangkokDateString } from '../utils/date';
 import { calculateFoodNutrition } from '../utils/nutritionCalculator';
+import { BarcodeScannerModal } from './BarcodeScannerModal';
 import {
   Camera,
   Upload,
@@ -20,6 +21,7 @@ import {
   ShieldAlert,
   Loader2,
   CheckCircle2,
+  ScanBarcode,
 } from 'lucide-react';
 
 interface FoodScannerProps {
@@ -52,6 +54,7 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
   >('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isBarcodeOpen, setIsBarcodeOpen] = useState(false);
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
@@ -296,6 +299,14 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
               >
                 <Upload size={18} /> Select Image from Device
               </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsBarcodeOpen(true)}
+                style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+              >
+                <ScanBarcode size={18} /> สแกนบาร์โค้ด (Barcode)
+              </button>
             </div>
           </div>
         ) : (
@@ -443,6 +454,14 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
           </button>
         </div>
       </section>
+
+      <BarcodeScannerModal
+        isOpen={isBarcodeOpen}
+        onClose={() => setIsBarcodeOpen(false)}
+        onProductFound={onOpenConfirmMeal}
+        defaultCategory={mealCategory}
+        settings={settings}
+      />
     </div>
   );
 };

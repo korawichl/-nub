@@ -129,6 +129,7 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
         fatPer100g: Math.round(f * factor * 100) / 100,
         sodiumMgPer100g: na !== undefined ? Math.round(na * factor) : undefined,
         sugarGPer100g: sug !== undefined ? Math.round(sug * factor * 10) / 10 : undefined,
+        barcode: draft.barcode,
         source: draft.source === 'ai_confirmed' ? 'ai_confirmed' : 'user_custom',
         sourceLabel:
           draft.source === 'ai_confirmed'
