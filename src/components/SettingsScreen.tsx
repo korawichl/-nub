@@ -201,9 +201,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   };
 
   const handleToggleTheme = async (nextTheme: ThemeMode) => {
+    document.documentElement.setAttribute('data-theme', nextTheme);
+    document.body.setAttribute('data-theme', nextTheme);
+
     await db.settings.update(settings.id, {
       theme: nextTheme,
       updatedAt: new Date().toISOString(),
+    });
+
+    setStatusBanner({
+      type: 'success',
+      text: `เปลี่ยนธีมเป็น "${
+        nextTheme === 'dark'
+          ? '1. Deep Dark (โหมดมืดสนิท)'
+          : nextTheme === 'twilight'
+          ? '2. Twilight Slate (โหมดสเลทผสมผสาน)'
+          : '3. Crisp Light (โหมดสว่างใส)'
+      }" เรียบร้อยแล้ว`,
     });
   };
 

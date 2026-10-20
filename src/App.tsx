@@ -9,7 +9,7 @@ import {
   createInitialProfile,
   createInitialSettings,
 } from './db/seedData';
-import type { ConfirmMealDraft, MealCategory, MealItem } from './types';
+import type { ConfirmMealDraft, MealCategory, MealItem, ThemeMode } from './types';
 import { getBangkokDateString } from './utils/date';
 import { calculateStreak } from './utils/nutritionCalculator';
 import { TodayDashboard } from './components/TodayDashboard';
@@ -28,6 +28,9 @@ import {
   X,
   WifiOff,
   Flame,
+  Sun,
+  Moon,
+  CloudMoon,
 } from 'lucide-react';
 
 type ActiveTab = 'dashboard' | 'diary' | 'scanner' | 'confirm' | 'progress' | 'settings';
@@ -69,6 +72,44 @@ export const App: React.FC = () => {
   const settings =
     useLiveQuery(() => db.settings.get(DEFAULT_SETTINGS_ID), []) ||
     createInitialSettings();
+
+  // Apply 3-Mode Dashboard Theme (Deep Dark, Twilight Slate, Crisp Light) to DOM
+  useEffect(() => {
+    const currentTheme = settings?.theme || 'light';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    document.body.setAttribute('data-theme', currentTheme);
+
+    try {
+      localStorage.setItem('nubcal_theme', currentTheme);
+    } catch {
+      // ignore
+    }
+
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute(
+        'content',
+        currentTheme === 'dark'
+          ? '#0B0F19'
+          : currentTheme === 'twilight'
+          ? '#182234'
+          : '#6258F5'
+      );
+    }
+  }, [settings?.theme]);
+
+  const handleCycleTheme = async () => {
+    const nextTheme: ThemeMode =
+      settings.theme === 'light'
+        ? 'dark'
+        : settings.theme === 'dark'
+        ? 'twilight'
+        : 'light';
+    await db.settings.update(settings.id, {
+      theme: nextTheme,
+      updatedAt: new Date().toISOString(),
+    });
+  };
 
   const todayBangkok = getBangkokDateString();
   const todayItems =
@@ -314,16 +355,50 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               {isOffline && (
                 <span className="text-xs px-2.5 py-1 bg-[#FEF7E8] text-[#D9961A] rounded-full font-medium border border-[#F2B544]/30 flex items-center gap-1">
                   <WifiOff className="w-3.5 h-3.5" />
-                  <span>Offline</span>
+                  <span className="hidden sm:inline">Offline</span>
                 </span>
               )}
+
+              {/* 3-Mode Theme Switcher Button in Header */}
+              <button
+                type="button"
+                onClick={handleCycleTheme}
+                title={`ธีมปัจจุบัน: ${
+                  settings.theme === 'dark'
+                    ? '1. Deep Dark'
+                    : settings.theme === 'twilight'
+                    ? '2. Twilight Slate'
+                    : '3. Crisp Light'
+                } (คลิกเพื่อเปลี่ยนธีม)`}
+                aria-label="เปลี่ยนธีมแดชบอร์ด 3 โหมด"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-[#E9EAF2] hover:border-[#6258F5] transition-all cursor-pointer shadow-2xs"
+              >
+                {settings.theme === 'dark' ? (
+                  <>
+                    <Moon className="w-3.5 h-3.5 text-[#756BFF]" />
+                    <span className="text-[11px] font-bold text-[#F8FAFC]">1. Deep Dark</span>
+                  </>
+                ) : settings.theme === 'twilight' ? (
+                  <>
+                    <CloudMoon className="w-3.5 h-3.5 text-[#756BFF]" />
+                    <span className="text-[11px] font-bold text-[#F1F5F9]">2. Twilight</span>
+                  </>
+                ) : (
+                  <>
+                    <Sun className="w-3.5 h-3.5 text-[#F2B544]" />
+                    <span className="text-[11px] font-bold text-[#20243A]">3. Crisp Light</span>
+                  </>
+                )}
+              </button>
+
               <div className="flex items-center gap-1.5 bg-[#EFEDFF] px-3 py-1 rounded-full text-xs font-semibold text-[#6258F5]">
                 <Flame className="w-3.5 h-3.5 text-[#6258F5]" />
-                <span>{goals.calorieTarget} kcal Target</span>
+                <span className="hidden sm:inline">{goals.calorieTarget} kcal Target</span>
+                <span className="sm:hidden">{goals.calorieTarget} kcal</span>
               </div>
             </div>
           </header>
