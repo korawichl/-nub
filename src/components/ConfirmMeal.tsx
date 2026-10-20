@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { ConfirmMealDraft, MealCategory } from '../types';
 import { addMealItemSnapshot, db } from '../db/database';
 import { getBangkokDateString } from '../utils/date';
+import { estimateRoughNutrition } from '../utils/nutritionCalculator';
 import { Check, X, AlertTriangle, Info, UtensilsCrossed } from 'lucide-react';
 
 interface ConfirmMealProps {
@@ -17,6 +18,17 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
   onConfirmed,
   onCancel,
 }) => {
+  // Calculate rough estimates for fat, sodium, and sugar if missing or zero
+  const initialEstimates = estimateRoughNutrition({
+    foodName: draft.foodName,
+    calories: draft.calories || 0,
+    protein: draft.protein || 0,
+    carbohydrates: draft.carbohydrates || 0,
+    fat: draft.fat,
+    sodiumMg: draft.sodiumMg,
+    sugarG: draft.sugarG,
+  });
+
   const [foodName, setFoodName] = useState(draft.foodName);
   const [ingredients, setIngredients] = useState(draft.ingredients);
   const [servingGrams, setServingGrams] = useState(String(draft.servingGrams || 100));
@@ -25,12 +37,12 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
   const [carbohydrates, setCarbohydrates] = useState(
     String(draft.carbohydrates || 0)
   );
-  const [fat, setFat] = useState(String(draft.fat || 0));
+  const [fat, setFat] = useState(String(initialEstimates.fat || 0));
   const [sodiumMg, setSodiumMg] = useState(
-    draft.sodiumMg !== undefined ? String(draft.sodiumMg) : ''
+    initialEstimates.sodiumMg > 0 ? String(initialEstimates.sodiumMg) : ''
   );
   const [sugarG, setSugarG] = useState(
-    draft.sugarG !== undefined ? String(draft.sugarG) : ''
+    initialEstimates.sugarG > 0 ? String(initialEstimates.sugarG) : ''
   );
   const [category, setCategory] = useState<MealCategory>(draft.category);
   const [saveToCatalog, setSaveToCatalog] = useState(Boolean(draft.saveToCatalog));
@@ -354,7 +366,7 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
           <div className="form-grid-2">
             <div className="form-field">
               <label htmlFor="confirm-sodium" className="field-label">
-                Sodium (mg) <span style={{ color: 'var(--text-muted)' }}>(Optional)</span>
+                Sodium (mg) <span className="text-[11px] text-[#6258F5] font-normal">(คำนวณคร่าวๆ / แก้ไขได้)</span>
               </label>
               <input
                 id="confirm-sodium"
@@ -370,7 +382,7 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
 
             <div className="form-field">
               <label htmlFor="confirm-sugar" className="field-label">
-                Sugar (g) <span style={{ color: 'var(--text-muted)' }}>(Optional)</span>
+                Sugar (g) <span className="text-[11px] text-[#6258F5] font-normal">(คำนวณคร่าวๆ / แก้ไขได้)</span>
               </label>
               <input
                 id="confirm-sugar"

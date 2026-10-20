@@ -1,4 +1,5 @@
 import type { AIProviderStatus } from '../types';
+import { estimateRoughNutrition } from '../utils/nutritionCalculator';
 
 export interface IdentifiedFoodItem {
   name: string;
@@ -90,22 +91,40 @@ export function validateFoodAnalysisResult(raw: unknown): FoodAnalysisResult {
   const toStringArray = (val: unknown): string[] =>
     Array.isArray(val) ? val.filter((v): v is string => typeof v === 'string') : [];
 
+  const estimatedCalories = numField('estimatedCalories');
+  const protein = numField('protein');
+  const carbohydrates = numField('carbohydrates');
+  const rawFat = numField('fat');
+  const rawSodium =
+    typeof obj.sodiumMg === 'number' && Number.isFinite(obj.sodiumMg) && obj.sodiumMg > 0
+      ? Math.round(obj.sodiumMg)
+      : undefined;
+  const rawSugar =
+    typeof obj.sugarG === 'number' && Number.isFinite(obj.sugarG) && obj.sugarG > 0
+      ? Math.round(Number(obj.sugarG) * 10) / 10
+      : undefined;
+
+  // Apply intelligent rough calculation for fat, sodium, and sugar so they are never omitted
+  const estimates = estimateRoughNutrition({
+    foodName: obj.mealName.trim(),
+    calories: estimatedCalories,
+    protein,
+    carbohydrates,
+    fat: rawFat,
+    sodiumMg: rawSodium,
+    sugarG: rawSugar,
+  });
+
   return {
     mealName: obj.mealName.trim(),
     identifiedFoodItems,
     estimatedWeightGrams: numField('estimatedWeightGrams'),
-    estimatedCalories: numField('estimatedCalories'),
-    protein: numField('protein'),
-    carbohydrates: numField('carbohydrates'),
-    fat: numField('fat'),
-    sodiumMg:
-      typeof obj.sodiumMg === 'number' && Number.isFinite(obj.sodiumMg)
-        ? Math.round(obj.sodiumMg)
-        : undefined,
-    sugarG:
-      typeof obj.sugarG === 'number' && Number.isFinite(obj.sugarG)
-        ? Math.round(Number(obj.sugarG) * 10) / 10
-        : undefined,
+    estimatedCalories,
+    protein,
+    carbohydrates,
+    fat: estimates.fat,
+    sodiumMg: estimates.sodiumMg,
+    sugarG: estimates.sugarG,
     uncertainties: toStringArray(obj.uncertainties),
     assumptions: toStringArray(obj.assumptions),
     requiresUserConfirmation: true,
@@ -175,7 +194,7 @@ async function compressImageBlobToBase64(
   });
 }
 
-const NUTRITION_VISION_PROMPT = `Analyze this food or drink photo in detail. Identify the dish/beverage (use Thai + English name if it is Thai food or drink) and estimate its serving weight in grams and macronutrients.
+const NUTRITION_VISION_PROMPT = `Analyze this food or drink photo in detail. Identify the dish/beverage (use Thai + English name if it is Thai food or drink) and estimate its serving weight in grams, total calories, macronutrients (protein, carbohydrates, fat), sodium in mg, and sugar in grams. Always provide realistic non-zero estimates for fat, sugar, and sodium based on the ingredients, cooking method (stir-fried, soup, sauce, etc.).
 Return ONLY a valid JSON object matching this exact schema (no markdown explanation):
 {
   "mealName": "Dish or drink name (e.g. เกาเหลาเนื้อตุ๋น, โกโก้ปั่นวิปครีม, ข้าวมันไก่ต้ม)",
@@ -194,8 +213,10 @@ Return ONLY a valid JSON object matching this exact schema (no markdown explanat
   "protein": 30,
   "carbohydrates": 45,
   "fat": 15,
-  "uncertainties": ["e.g. Exact sugar/syrup or oil quantity is estimated from visual appearance"],
-  "assumptions": ["e.g. Standard medium cup / standard Thai bowl size"]
+  "sodiumMg": 680,
+  "sugarG": 4.5,
+  "uncertainties": ["e.g. Exact cooking oil or sugar level estimated from appearance"],
+  "assumptions": ["e.g. Standard Thai restaurant portion"]
 }`;
 
 /**

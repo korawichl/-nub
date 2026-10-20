@@ -40,6 +40,103 @@ export interface PortionNutritionResult {
   fat: number;
 }
 
+export interface RoughNutritionInput {
+  foodName?: string;
+  calories: number;
+  protein?: number;
+  carbohydrates?: number;
+  fat?: number;
+  sodiumMg?: number;
+  sugarG?: number;
+}
+
+export interface RoughNutritionOutput {
+  fat: number;
+  sodiumMg: number;
+  sugarG: number;
+}
+
+/**
+ * Intelligent fallback & rough estimation for Fat, Sodium, and Sugar.
+ * Ensures scanning foods or adding meals always provides realistic macro/micronutrient estimates.
+ */
+export function estimateRoughNutrition(input: RoughNutritionInput): RoughNutritionOutput {
+  const calories = Math.max(0, Number(input.calories) || 0);
+  const protein = Math.max(0, Number(input.protein) || 0);
+  const carbs = Math.max(0, Number(input.carbohydrates) || 0);
+  const name = (input.foodName || '').toLowerCase();
+
+  // 1. Fat estimation
+  let fat =
+    input.fat !== undefined && Number.isFinite(input.fat) && input.fat > 0
+      ? Math.round(Number(input.fat) * 10) / 10
+      : 0;
+
+  if (fat <= 0 && calories > 0) {
+    const nonFatCalories = protein * 4 + carbs * 4;
+    const remainingCalories = calories - nonFatCalories;
+    if (remainingCalories > 0) {
+      fat = Math.round((remainingCalories / 9) * 10) / 10;
+    } else {
+      const isLean = /อกไก่|ไข่ขาว|ข้าวสวย|ผลไม้|น้ำเปล่า|เวย์|chicken breast|egg white|rice/i.test(name);
+      const fatRatio = isLean ? 0.08 : 0.25;
+      fat = Math.max(0.5, Math.round(((calories * fatRatio) / 9) * 10) / 10);
+    }
+  }
+
+  // 2. Sodium estimation (mg)
+  let sodiumMg =
+    input.sodiumMg !== undefined && Number.isFinite(input.sodiumMg) && input.sodiumMg > 0
+      ? Math.round(Number(input.sodiumMg))
+      : 0;
+
+  if (sodiumMg <= 0 && calories > 0) {
+    const isSoupOrNoodle = /เตี๋ยว|เกาเหลา|ต้ม|แกง|ซุป|สุกี้|ราเมง|บะหมี่|noodle|soup|curry|hotpot|sukiyaki/i.test(name);
+    const isBeverageOrSweet = /ชานม|โกโก้|กาแฟ|นม|น้ำ|หวาน|ชา|ผลไม้|เค้ก|dessert|juice|tea|coffee|smoothie|shake|ice cream|ไอศกรีม/i.test(name);
+    const isSnackOrProcessed = /มาม่า|มันฝรั่ง|ขนมกรุบกรอบ|ไส้กรอก|แฮม|ลูกชิ้น|sausage|snack|chips/i.test(name);
+
+    if (isBeverageOrSweet) {
+      sodiumMg = Math.min(180, Math.max(15, Math.round(calories * 0.15)));
+    } else if (isSoupOrNoodle || isSnackOrProcessed) {
+      sodiumMg = Math.min(1800, Math.max(650, Math.round(calories * 1.8)));
+    } else {
+      sodiumMg = Math.min(1200, Math.max(300, Math.round(calories * 1.25)));
+    }
+  }
+
+  // 3. Sugar estimation (g)
+  let sugarG =
+    input.sugarG !== undefined && Number.isFinite(input.sugarG) && input.sugarG > 0
+      ? Math.round(Number(input.sugarG) * 10) / 10
+      : 0;
+
+  if (sugarG <= 0 && calories > 0) {
+    const isBeverageOrSweet = /ชานม|โกโก้|กาแฟ|นม|น้ำ|หวาน|ชา|ผลไม้|เค้ก|dessert|juice|tea|coffee|smoothie|shake|ice cream|ไอศกรีม|boba|latte|soda|น้ำอัดลม/i.test(name);
+    const isSavorySauce = /กะเพรา|ผัด|ทอด|หมูแดง|พะโล้|หวาน|ซอส|เทอริยากิ|stir-fry|curry/i.test(name);
+    const isPlainGrainOrMeat = /ข้าวสวย|ข้าวกล้อง|อกไก่|ไข่ต้ม|ไข่ดาว|สเต็ก|เนื้อ|rice|chicken|beef|egg/i.test(name);
+
+    if (isBeverageOrSweet) {
+      if (carbs > 0) {
+        sugarG = Math.round(carbs * 0.7 * 10) / 10;
+      } else {
+        sugarG = Math.round(((calories * 0.6) / 4) * 10) / 10;
+      }
+    } else if (isSavorySauce) {
+      sugarG = carbs > 0 ? Math.min(18, Math.max(2, Math.round(carbs * 0.14 * 10) / 10)) : 3;
+    } else if (isPlainGrainOrMeat) {
+      sugarG = carbs > 0 ? Math.round(carbs * 0.03 * 10) / 10 : 0.2;
+    } else {
+      sugarG = carbs > 0 ? Math.min(15, Math.max(1, Math.round(carbs * 0.1 * 10) / 10)) : 1.5;
+    }
+  }
+
+  return {
+    fat: Math.max(0, fat),
+    sodiumMg: Math.max(0, Math.round(sodiumMg)),
+    sugarG: Math.max(0, Math.round(sugarG * 10) / 10),
+  };
+}
+
 export interface DailySummaryInputItem {
   calories: number;
   protein: number;

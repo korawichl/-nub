@@ -177,6 +177,16 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
       });
     }
 
+    const ratio = portion.grams / 100;
+    const initialSodium =
+      food.sodiumMgPer100g !== undefined
+        ? Math.round(food.sodiumMgPer100g * ratio)
+        : undefined;
+    const initialSugar =
+      food.sugarGPer100g !== undefined
+        ? Math.round(food.sugarGPer100g * ratio * 10) / 10
+        : undefined;
+
     onOpenConfirmMeal({
       foodName: food.name,
       ingredients: food.name,
@@ -185,6 +195,8 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
       protein: portion.protein,
       carbohydrates: portion.carbohydrates,
       fat: portion.fat,
+      sodiumMg: initialSodium,
+      sugarG: initialSugar,
       category: mealCategory,
       source: food.source,
       requiresExplicitConfirmation: false,

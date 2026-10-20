@@ -820,19 +820,15 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
                 7-Day Intake Statistics
               </h3>
               <p className="text-xs text-[#858BA0]">
-                Calorie intake compared to your daily budget
+                Calorie intake over the past 7 days
               </p>
             </div>
 
-            {/* Legend */}
+            {/* Legend - Consumed Only */}
             <div className="flex items-center gap-4 text-xs font-medium text-[#858BA0]">
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#6258F5]"></span>
-                <span>Consumed kcal</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#D8D4FF]"></span>
-                <span>Daily Target</span>
+                <span className="font-semibold text-[#20243A]">Consumed kcal</span>
               </div>
             </div>
           </div>
@@ -842,7 +838,6 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
               <BarChart
                 data={weeklyChartData}
                 margin={{ top: 25, right: 10, left: -20, bottom: 0 }}
-                barGap={4}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E9EAF2" />
                 <XAxis
@@ -869,11 +864,6 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
                             <span>Consumed:</span>
                             <span className="font-bold">{payload[0].value} kcal</span>
                           </p>
-                          <p className="text-[#858BA0] flex items-center gap-1.5 mt-0.5">
-                            <span className="w-2 h-2 rounded-full bg-[#D8D4FF] inline-block"></span>
-                            <span>Target:</span>
-                            <span className="font-bold text-[#EFEDFF]">{payload[1].value} kcal</span>
-                          </p>
                         </div>
                       );
                     }
@@ -885,16 +875,8 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
                 <Bar
                   dataKey="consumedKcal"
                   fill="#6258F5"
-                  radius={[4, 4, 0, 0]}
-                  maxBarSize={16}
-                />
-
-                {/* Daily Target - Soft Lavender Bars */}
-                <Bar
-                  dataKey="targetKcal"
-                  fill="#D8D4FF"
-                  radius={[4, 4, 0, 0]}
-                  maxBarSize={16}
+                  radius={[6, 6, 0, 0]}
+                  maxBarSize={28}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -1260,6 +1242,13 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
                     <p className="text-[11px] text-[#858BA0] mt-0.5">
                       {item.grams}g · P:{item.protein}g C:{item.carbohydrates}g F:{item.fat}g
                     </p>
+                    {(item.sodiumMg !== undefined || item.sugarG !== undefined) && (
+                      <p className="text-[10px] text-[#756BFF] mt-0.5 font-medium">
+                        {item.sodiumMg !== undefined && `🧂 Na: ${item.sodiumMg}mg`}
+                        {item.sodiumMg !== undefined && item.sugarG !== undefined && ' · '}
+                        {item.sugarG !== undefined && `🍬 น้ำตาล: ${item.sugarG}g`}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1373,8 +1362,17 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
                       <td className="py-3 px-3 text-[#858BA0]">{item.grams}g</td>
 
                       <td className="py-3 px-3 text-[#858BA0]">
-                        <span className="text-[#20243A] font-medium">P: {item.protein}g</span> · C:{' '}
-                        {item.carbohydrates}g · F: {item.fat}g
+                        <div>
+                          <span className="text-[#20243A] font-medium">P: {item.protein}g</span> · C:{' '}
+                          {item.carbohydrates}g · <span className="text-[#20243A] font-medium">F: {item.fat}g</span>
+                        </div>
+                        {(item.sodiumMg !== undefined || item.sugarG !== undefined) && (
+                          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-[#756BFF] font-medium">
+                            {item.sodiumMg !== undefined && <span>🧂 Na: {item.sodiumMg}mg</span>}
+                            {item.sodiumMg !== undefined && item.sugarG !== undefined && <span>·</span>}
+                            {item.sugarG !== undefined && <span>🍬 น้ำตาล: {item.sugarG}g</span>}
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-3 px-3 font-semibold text-[#6258F5]">

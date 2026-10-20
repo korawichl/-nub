@@ -3,6 +3,7 @@ import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import type { AppSettings, ConfirmMealDraft, MealCategory } from '../types';
 import { db } from '../db/database';
 import { getFoodAnalysisProvider } from '../services/aiProvider';
+import { estimateRoughNutrition } from '../utils/nutritionCalculator';
 import {
   ScanBarcode,
   Camera,
@@ -507,17 +508,33 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
           p.product_name_en ||
           `Product #${cleanCode}`;
 
+        const totalCalories = Math.round(cal100g * ratio);
+        const totalProtein = Math.round(pro100g * ratio * 10) / 10;
+        const totalCarbs = Math.round(carb100g * ratio * 10) / 10;
+        const rawFat = Math.round(fat100g * ratio * 10) / 10;
+
+        // Apply rough estimation for fat, sodium, and sugar if OpenFoodFacts omitted them
+        const estimates = estimateRoughNutrition({
+          foodName: productName,
+          calories: totalCalories,
+          protein: totalProtein,
+          carbohydrates: totalCarbs,
+          fat: rawFat,
+          sodiumMg,
+          sugarG,
+        });
+
         setScannedProduct({
           name: productName,
           brand: p.brands || p.brand_owner || 'OpenFoodFacts',
           imageUrl: p.image_front_small_url || p.image_url,
           servingGrams,
-          calories: Math.round(cal100g * ratio),
-          protein: Math.round(pro100g * ratio * 10) / 10,
-          carbs: Math.round(carb100g * ratio * 10) / 10,
-          fat: Math.round(fat100g * ratio * 10) / 10,
-          sodiumMg,
-          sugarG,
+          calories: totalCalories,
+          protein: totalProtein,
+          carbs: totalCarbs,
+          fat: estimates.fat,
+          sodiumMg: estimates.sodiumMg,
+          sugarG: estimates.sugarG,
           barcode: cleanCode,
           sourceLabel: 'OpenFoodFacts Global Database',
         });

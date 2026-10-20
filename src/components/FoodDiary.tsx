@@ -89,6 +89,12 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
     String(editingItem?.carbohydrates || 0)
   );
   const [editFat, setEditFat] = useState(String(editingItem?.fat || 0));
+  const [editSodium, setEditSodium] = useState(
+    editingItem?.sodiumMg !== undefined ? String(editingItem.sodiumMg) : ''
+  );
+  const [editSugar, setEditSugar] = useState(
+    editingItem?.sugarG !== undefined ? String(editingItem.sugarG) : ''
+  );
   const [editCat, setEditCat] = useState<MealCategory>(
     editingItem?.category || 'breakfast'
   );
@@ -103,6 +109,12 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
       setEditProtein(String(editingItem.protein));
       setEditCarbs(String(editingItem.carbohydrates));
       setEditFat(String(editingItem.fat));
+      setEditSodium(
+        editingItem.sodiumMg !== undefined ? String(editingItem.sodiumMg) : ''
+      );
+      setEditSugar(
+        editingItem.sugarG !== undefined ? String(editingItem.sugarG) : ''
+      );
       setEditCat(editingItem.category);
     }
   }, [editingItem]);
@@ -116,6 +128,8 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
     setEditProtein(String(item.protein));
     setEditCarbs(String(item.carbohydrates));
     setEditFat(String(item.fat));
+    setEditSodium(item.sodiumMg !== undefined ? String(item.sodiumMg) : '');
+    setEditSugar(item.sugarG !== undefined ? String(item.sugarG) : '');
     setEditCat(item.category);
   };
 
@@ -138,6 +152,8 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
       setEditProtein(scale(editProtein));
       setEditCarbs(scale(editCarbs));
       setEditFat(scale(editFat));
+      if (editSodium) setEditSodium(String(Math.round(parseFloat(editSodium) * ratio)));
+      if (editSugar) setEditSugar(String(Math.round(parseFloat(editSugar) * ratio * 10) / 10));
     }
   };
 
@@ -152,6 +168,9 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
 
     if (!editName.trim() || !Number.isFinite(g) || g <= 0) return;
 
+    const na = editSodium.trim() ? Math.round(parseFloat(editSodium)) : undefined;
+    const sug = editSugar.trim() ? Math.round(parseFloat(editSugar) * 10) / 10 : undefined;
+
     await updateMealItemSnapshot(editId, {
       foodNameSnapshot: editName.trim(),
       ingredientsSnapshot: editIngredients.trim() || undefined,
@@ -160,6 +179,8 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
       protein: Math.round((Number.isFinite(pro) ? pro : 0) * 100) / 100,
       carbohydrates: Math.round((Number.isFinite(carb) ? carb : 0) * 100) / 100,
       fat: Math.round((Number.isFinite(f) ? f : 0) * 100) / 100,
+      sodiumMg: na,
+      sugarG: sug,
       category: editCat,
     });
 
@@ -395,6 +416,32 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
                 />
               </div>
             </div>
+            <div className="form-grid-2">
+              <div className="form-field">
+                <label className="field-label">Sodium (mg)</label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  className="input-text"
+                  placeholder="e.g. 450"
+                  value={editSodium}
+                  onChange={(e) => setEditSodium(e.target.value)}
+                />
+              </div>
+              <div className="form-field">
+                <label className="field-label">Sugar (g)</label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  className="input-text"
+                  placeholder="e.g. 5"
+                  value={editSugar}
+                  onChange={(e) => setEditSugar(e.target.value)}
+                />
+              </div>
+            </div>
             <div className="cta-row">
               <button type="submit" className="btn btn-primary btn-sm">
                 <Check size={16} /> Update Entry
@@ -476,6 +523,12 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
                         <div className="meal-item-macros">
                           {item.grams}g · P {item.protein}g · C{' '}
                           {item.carbohydrates}g · F {item.fat}g
+                          {(item.sodiumMg !== undefined || item.sugarG !== undefined) && (
+                            <span style={{ marginLeft: 6, color: '#6258F5', fontWeight: 500 }}>
+                              · {item.sodiumMg !== undefined && `🧂 Na: ${item.sodiumMg}mg `}
+                              {item.sugarG !== undefined && `🍬 น้ำตาล: ${item.sugarG}g`}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="meal-item-right">
