@@ -331,7 +331,7 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary btn-sm">
+          <button type="submit" className="btn btn-primary min-h-[44px] px-5 text-xs font-semibold">
             <Plus size={16} /> Save Weight Record
           </button>
         </form>

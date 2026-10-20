@@ -329,7 +329,7 @@ export const App: React.FC = () => {
           </header>
 
           {/* Main Content Area */}
-          <main className="flex-1 p-3.5 pb-24 sm:p-6 lg:p-7 sm:pb-7 overflow-y-auto">
+          <main className="flex-1 p-3.5 pb-28 sm:p-6 lg:p-7 sm:pb-7 overflow-y-auto">
             {activeTab === 'dashboard' && (
               <TodayDashboard
                 todayItems={todayItems}
@@ -408,13 +408,13 @@ export const App: React.FC = () => {
 
       {/* Mobile Bottom Dock Navigation Bar */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E9EAF2] py-1.5 px-3 flex items-center justify-around shadow-lg shadow-[#17213D]/5 lg:hidden"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E9EAF2] pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] px-3 flex items-center justify-around shadow-lg shadow-[#17213D]/5 lg:hidden"
         aria-label="Mobile Navigation"
       >
         <button
           type="button"
           onClick={() => setActiveTab('dashboard')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl transition-all ${
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 min-h-[44px] rounded-2xl transition-all ${
             activeTab === 'dashboard'
               ? 'text-[#6258F5] font-bold scale-105'
               : 'text-[#858BA0] hover:text-[#20243A]'
@@ -427,7 +427,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('diary')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl transition-all ${
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 min-h-[44px] rounded-2xl transition-all ${
             activeTab === 'diary'
               ? 'text-[#6258F5] font-bold scale-105'
               : 'text-[#858BA0] hover:text-[#20243A]'
@@ -441,7 +441,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('scanner')}
-          className="w-13 h-13 -mt-6 rounded-full bg-[#6258F5] hover:bg-[#756BFF] text-white flex flex-col items-center justify-center shadow-xl shadow-[#6258F5]/35 active:scale-95 transition-all border-4 border-white"
+          className="w-14 h-14 -mt-6 rounded-full bg-[#6258F5] hover:bg-[#756BFF] text-white flex flex-col items-center justify-center shadow-xl shadow-[#6258F5]/35 active:scale-95 transition-all border-4 border-white"
           aria-label="AI Food Scanner"
         >
           <Camera className="w-5 h-5" />
@@ -451,7 +451,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('progress')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl transition-all ${
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 min-h-[44px] rounded-2xl transition-all ${
             activeTab === 'progress'
               ? 'text-[#6258F5] font-bold scale-105'
               : 'text-[#858BA0] hover:text-[#20243A]'
@@ -464,7 +464,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('settings')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-2xl transition-all ${
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 min-h-[44px] rounded-2xl transition-all ${
             activeTab === 'settings'
               ? 'text-[#6258F5] font-bold scale-105'
               : 'text-[#858BA0] hover:text-[#20243A]'

@@ -479,6 +479,7 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
               value={textPrompt}
               onChange={(e) => setTextPrompt(e.target.value)}
               placeholder="เช่น 'ข้าวกะเพราหมูสับไข่ดาว + ชานมหวานน้อย' หรือ 'อกไก่ต้ม 200g กับข้าวกล้อง'..."
+              aria-label="พิมพ์หรือพูดชื่อเมนูอาหารเพื่อวิเคราะห์ด้วย AI"
               disabled={aiPromptLoading}
               className="w-full pl-4 pr-11 py-2.5 text-xs bg-[#F6F7FB] border border-[#E9EAF2] rounded-xl text-[#20243A] placeholder:text-[#858BA0] focus:outline-none focus:border-[#6258F5] focus:bg-white transition-all"
             />
@@ -883,17 +884,15 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
 
             {/* Primary Purple Pill Pin Callout above today's bar */}
             <div
-              className="absolute pointer-events-none flex flex-col items-center"
+              className="absolute pointer-events-none flex flex-col items-end"
               style={{
-                left: '92%',
+                right: '10px',
                 top: '6px',
-                transform: 'translateX(-50%)',
               }}
             >
-              <div className="bg-[#6258F5] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-md shadow-[#6258F5]/25 tracking-tight whitespace-nowrap">
-                {Math.round(summary.consumedCalories)} kcal
+              <div className="bg-[#6258F5] text-white text-[10px] sm:text-[11px] font-bold px-2 sm:px-2.5 py-0.5 rounded-full shadow-md shadow-[#6258F5]/25 tracking-tight whitespace-nowrap">
+                Today: {Math.round(summary.consumedCalories)} kcal
               </div>
-              <div className="w-1.5 h-1.5 bg-[#6258F5] rounded-full mt-0.5"></div>
             </div>
           </div>
         </div>
@@ -954,32 +953,32 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 flex-wrap justify-end">
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
                   <button
                     type="button"
                     onClick={() => handleQuickWater(250)}
-                    className="px-2 py-1 text-[10px] font-semibold text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] rounded-full transition-colors"
+                    className="px-2.5 py-1.5 text-[11px] font-semibold text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] active:scale-95 rounded-full transition-all"
                   >
                     +250ml
                   </button>
                   <button
                     type="button"
                     onClick={() => handleQuickWater(500)}
-                    className="px-2 py-1 text-[10px] font-semibold text-white bg-[#6258F5] hover:bg-[#756BFF] rounded-full shadow-2xs transition-colors"
+                    className="px-2.5 py-1.5 text-[11px] font-semibold text-white bg-[#6258F5] hover:bg-[#756BFF] active:scale-95 rounded-full shadow-2xs transition-all"
                   >
                     +500ml
                   </button>
                   <button
                     type="button"
                     onClick={() => handleQuickWater(750)}
-                    className="px-2 py-1 text-[10px] font-semibold text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] rounded-full transition-colors"
+                    className="px-2.5 py-1.5 text-[11px] font-semibold text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] active:scale-95 rounded-full transition-all"
                   >
                     +750ml
                   </button>
                   <button
                     type="button"
                     onClick={() => handleQuickWater(1500)}
-                    className="px-2 py-1 text-[10px] font-semibold text-[#756BFF] bg-[#F0F4FF] hover:bg-[#EFEDFF] rounded-full transition-colors"
+                    className="px-2.5 py-1.5 text-[11px] font-semibold text-[#756BFF] bg-[#F0F4FF] hover:bg-[#EFEDFF] active:scale-95 rounded-full transition-all"
                   >
                     +1.5L
                   </button>
@@ -1122,6 +1121,7 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search food name..."
+                aria-label="ค้นหารายการอาหารที่บันทึกวันนี้"
                 className="pl-8 pr-3 py-1.5 text-xs bg-[#F6F7FB] border border-[#E9EAF2] text-[#20243A] rounded-full focus:outline-none focus:ring-2 focus:ring-[#6258F5] focus:bg-white w-40 sm:w-48 transition-all"
               />
             </div>
@@ -1252,14 +1252,15 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs font-bold text-[#6258F5]">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-bold text-[#6258F5] mr-1">
                     {Math.round(item.calories)} kcal
                   </span>
                   <button
                     type="button"
                     onClick={() => onEditMealItem(item)}
-                    className="p-1 text-[#858BA0] hover:text-[#6258F5]"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-[#858BA0] hover:text-[#6258F5] hover:bg-[#EFEDFF] active:scale-95 transition-all"
+                    aria-label={`แก้ไขรายการ ${item.foodNameSnapshot}`}
                     title="Edit item"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
@@ -1267,7 +1268,8 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
                   <button
                     type="button"
                     onClick={async () => await deleteMealItem(item.id)}
-                    className="p-1 text-[#EB6478] hover:text-[#D13D54]"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-[#EB6478] hover:text-[#D13D54] hover:bg-[#FFF0F2] active:scale-95 transition-all"
+                    aria-label={`ลบรายการ ${item.foodNameSnapshot}`}
                     title="Delete item"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

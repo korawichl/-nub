@@ -297,6 +297,29 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
               {summary.consumedFat} / {goals.fatTargetG}g
             </strong>
           </div>
+          <div className="strip-stat">
+            <span className="strip-label">Sodium</span>
+            <strong
+              className="strip-val"
+              style={{
+                color:
+                  summary.consumedSodiumMg > 2000 ? '#EB6478' : undefined,
+              }}
+            >
+              {summary.consumedSodiumMg.toLocaleString()} mg
+            </strong>
+          </div>
+          <div className="strip-stat">
+            <span className="strip-label">Sugar</span>
+            <strong
+              className="strip-val"
+              style={{
+                color: summary.consumedSugarG > 24 ? '#EB6478' : undefined,
+              }}
+            >
+              {summary.consumedSugarG} g
+            </strong>
+          </div>
         </div>
       </header>
 

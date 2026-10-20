@@ -296,24 +296,24 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
             <p>
               Photos are automatically compressed in-memory for instant free AI vision analysis.
             </p>
-            <div className="cta-row">
+            <div className="cta-row flex flex-col sm:flex-row gap-2">
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary min-h-[44px]"
                 onClick={() => cameraInputRef.current?.click()}
               >
                 <Camera size={18} /> Take Photo (Camera)
               </button>
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-secondary min-h-[44px]"
                 onClick={() => galleryInputRef.current?.click()}
               >
-                <Upload size={18} /> Select Image from Device
+                <Upload size={18} /> Choose from Library
               </button>
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-secondary min-h-[44px]"
                 onClick={() => setIsBarcodeOpen(true)}
                 style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
               >
@@ -347,7 +347,7 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
               {providerStatus === 'ready' ? (
                 <button
                   type="button"
-                  className="btn btn-primary btn-full"
+                  className="btn btn-primary btn-full min-h-[48px]"
                   disabled={scanState === 'loading'}
                   onClick={handleRunAiAnalysis}
                 >

@@ -433,11 +433,11 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
             </span>
           </div>
 
-          <div className="cta-row">
-            <button type="submit" className="btn btn-primary">
+          <div className="cta-row flex flex-col sm:flex-row gap-2 mt-2">
+            <button type="submit" className="btn btn-primary w-full sm:w-auto min-h-[44px]">
               <Check size={18} /> Confirm & Save Meal
             </button>
-            <button type="button" className="btn btn-secondary" onClick={onCancel}>
+            <button type="button" className="btn btn-secondary w-full sm:w-auto min-h-[44px]" onClick={onCancel}>
               Cancel
             </button>
           </div>
