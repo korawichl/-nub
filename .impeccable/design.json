@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-20T12:23:45.000Z",
+  "title": "Design System: NubCal",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Electric Lavender-Violet",
+        "canonical": "#6258F5",
+        "tonalRamp": [
+          "#1B1668",
+          "#2D26A6",
+          "#4138DE",
+          "#6258F5",
+          "#8A82F8",
+          "#B3ACFB",
+          "#DDD9FD",
+          "#EFEDFF"
+        ]
+      },
+      "secondary": {
+        "role": "secondary",
+        "displayName": "Soft Lilac Tint",
+        "canonical": "#EFEDFF",
+        "tonalRamp": [
+          "#383182",
+          "#5247B6",
+          "#766BCF",
+          "#9D95E3",
+          "#C2BCF4",
+          "#DDD9FD",
+          "#EFEDFF",
+          "#F8F7FF"
+        ]
+      },
+      "navy": {
+        "role": "neutral-dark",
+        "displayName": "Deep Night Navy",
+        "canonical": "#17213D",
+        "tonalRamp": [
+          "#090D1A",
+          "#10172B",
+          "#17213D",
+          "#26345C",
+          "#3A4E85",
+          "#5B71B0",
+          "#8B9DCF",
+          "#C8D2ED"
+        ]
+      },
+      "canvas": {
+        "role": "neutral-light",
+        "displayName": "Soft Canvas Fog",
+        "canonical": "#F6F7FB",
+        "tonalRamp": [
+          "#191D2B",
+          "#343B52",
+          "#576282",
+          "#858BA0",
+          "#B5B9CB",
+          "#DCE0EE",
+          "#E9EAF2",
+          "#F6F7FB"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display Title",
+        "purpose": "Screen titles and primary KPI numbers"
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Data rows, nutritional descriptions, and general UI text"
+      }
+    },
+    "shadows": [
+      {
+        "name": "ambient-rest",
+        "value": "0 2px 8px rgba(23, 33, 61, 0.03)",
+        "purpose": "Default resting card elevation"
+      },
+      {
+        "name": "button-glow",
+        "value": "0 2px 6px rgba(98, 88, 245, 0.24)",
+        "purpose": "Primary button resting state"
+      },
+      {
+        "name": "hover-lift",
+        "value": "0 4px 14px rgba(98, 88, 245, 0.28)",
+        "purpose": "Interactive hover state on primary actions"
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-smooth",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Default easing curve for UI state changes"
+      },
+      {
+        "name": "duration-fast",
+        "value": "150ms",
+        "purpose": "Speed for button hovers, tabs, and menu popovers"
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary action button with pill geometry and subtle purple glow.",
+      "html": "<button class=\"ds-btn-primary\">Log Food Item</button>",
+      "css": ".ds-btn-primary { background: #6258F5; color: #FFFFFF; font-size: 13px; font-weight: 600; padding: 9px 20px; border-radius: 9999px; border: none; cursor: pointer; box-shadow: 0 2px 6px rgba(98,88,245,0.24); transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:hover { background: #756BFF; box-shadow: 0 4px 12px rgba(98,88,245,0.32); transform: translateY(-1px); }"
+    },
+    {
+      "name": "Secondary Soft Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Subtle lilac button for secondary choices and filters.",
+      "html": "<button class=\"ds-btn-secondary\">Search Catalog</button>",
+      "css": ".ds-btn-secondary { background: #EFEDFF; color: #6258F5; font-size: 13px; font-weight: 600; padding: 9px 20px; border-radius: 9999px; border: 1px solid #E2DFFF; cursor: pointer; transition: all 150ms ease; } .ds-btn-secondary:hover { background: #E3DFFF; color: #5146E0; }"
+    },
+    {
+      "name": "Metric Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "White rounded card surface with ghost border and ambient shadow.",
+      "html": "<div class=\"ds-card\"><span class=\"ds-card-label\">Calories Consumed</span><div class=\"ds-card-val\">1,840 <span class=\"ds-card-unit\">kcal</span></div></div>",
+      "css": ".ds-card { background: #FFFFFF; border: 1px solid #E9EAF2; border-radius: 24px; padding: 20px 24px; box-shadow: 0 2px 8px rgba(23,33,61,0.03); } .ds-card-label { font-size: 12px; font-weight: 600; color: #858BA0; display: block; margin-bottom: 6px; } .ds-card-val { font-size: 26px; font-weight: 700; color: #20243A; letter-spacing: -0.02em; } .ds-card-unit { font-size: 13px; font-weight: 600; color: #858BA0; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Rounded input with subtle background and purple glow focus ring.",
+      "html": "<input type=\"text\" class=\"ds-input\" placeholder=\"e.g. ข้าวมันไก่ต้ม\" />",
+      "css": ".ds-input { background: #F6F7FB; border: 1px solid #E9EAF2; border-radius: 16px; padding: 10px 16px; font-size: 13px; color: #20243A; outline: none; width: 100%; transition: all 150ms ease; } .ds-input:focus { background: #FFFFFF; border-color: #6258F5; box-shadow: 0 0 0 3px rgba(98,88,245,0.14); }"
+    },
+    {
+      "name": "Category Meal Chip",
+      "kind": "chip",
+      "refersTo": "chip-meal",
+      "description": "Pill badge denoting meal categories.",
+      "html": "<span class=\"ds-chip-lunch\">Lunch</span>",
+      "css": ".ds-chip-lunch { background: #F0F4FF; color: #6258F5; font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 9999px; display: inline-block; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Mindful Plate Sanctuary",
+    "overview": "NubCal’s design language marries the clean, authoritative precision of modern European SaaS dashboards (inspired by Jobgio) with the warmth, tactile softness, and high-frequency usability demanded by personal nutrition tracking in Thailand. The interface is light-first, quiet, and profoundly respectful of the user's attention.",
+    "keyCharacteristics": [
+      "Crisp, airy canvas with a calming cool fog background (#F6F7FB) and pure white cards (#FFFFFF)",
+      "Distinctive electric purple focal points (#6258F5) balanced by deep night navy (#17213D)",
+      "Soft, pill-shaped interactive geometry (rounded-full) contrasting structured cards (24px radius)",
+      "Intentional, functional micro-interactions (fast 150ms transitions, smooth ease-out curves)",
+      "Strict light-theme discipline ensuring universal contrast and no washed-out text"
+    ],
+    "rules": [
+      {
+        "name": "The 90/10 Canvas Rule",
+        "body": "90% of the visible surface consists of quiet neutrals (#F6F7FB, #FFFFFF, #E9EAF2). The vibrant purple accent (#6258F5) never exceeds 10% of any viewport. Its scarcity preserves its signaling power.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Pure Black Rule",
+        "body": "#000000 is strictly forbidden for typography and strokes. All dark surfaces and text must use #20243A or #17213D to maintain soft, sophisticated contrast.",
+        "section": "colors"
+      },
+      {
+        "name": "The Numeric Prominence Rule",
+        "body": "Calorie counts and macro quantities (kcal, g, mg) must always be rendered in bold (font-weight: 700) with explicit units in secondary slate (#858BA0), ensuring numbers can be parsed at an arm's length.",
+        "section": "typography"
+      },
+      {
+        "name": "The Ghost Border Rule",
+        "body": "Every elevated surface (card, modal, popover) must carry a crisp 1px stroke of #E9EAF2 alongside any ambient shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Pill vs. Container Rule",
+        "body": "Micro-surfaces (buttons, filter chips, meal tags, status badges) must ALWAYS use fully rounded pill geometry (rounded-full). Macro-surfaces (cards, panels, modals) must ALWAYS use rounded rectangular geometry (20px–28px).",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do maintain the 90/10 canvas ratio: keep backgrounds and cards predominantly white and light gray.",
+      "Do use pill buttons (rounded-full) for all action triggers and category selectors.",
+      "Do show Thai and English names in bilingual harmony for local food dishes.",
+      "Do use smooth ease-out curves (cubic-bezier(0.16, 1, 0.3, 1)) for all state transitions under 200ms.",
+      "Do keep touch targets on mobile at a minimum of 44×44px."
+    ],
+    "donts": [
+      "Don't use pure black (#000000) for text or background fills.",
+      "Don't introduce heavy gradient backgrounds, glassmorphism, or multi-colored glow effects.",
+      "Don't use bounce or elastic easing animations; motion must be refined and professional.",
+      "Don't hide sodium and sugar metrics behind deep submenus; keep them visible on meal logs.",
+      "Don't allow cards on mobile to clip or trigger horizontal scrolling."
+    ]
+  }
+}

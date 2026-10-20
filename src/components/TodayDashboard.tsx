@@ -489,7 +489,7 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
               title={isListening ? 'Stop recording' : 'Speak meal in Thai / English'}
               className={`absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
                 isListening
-                  ? 'bg-[#EB6478] text-white animate-bounce'
+                  ? 'bg-[#EB6478] text-white animate-pulse ring-2 ring-[#EB6478]/40'
                   : 'text-[#858BA0] hover:text-[#6258F5] hover:bg-[#EFEDFF]'
               }`}
             >
