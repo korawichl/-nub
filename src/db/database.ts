@@ -22,7 +22,7 @@ import {
 } from './seedData';
 import { calculateFoodNutrition } from '../utils/nutritionCalculator';
 
-export const CURRENT_DB_SCHEMA_VERSION = 3;
+export const CURRENT_DB_SCHEMA_VERSION = 4;
 
 export class NubNutritionDatabase extends Dexie {
   profiles!: Table<UserProfile, string>;
@@ -76,7 +76,7 @@ export class NubNutritionDatabase extends Dexie {
       });
 
     // Version 3: Upgrade catalog with Thai foods, bilingual names, portion presets, and waterTargetMl
-    this.version(CURRENT_DB_SCHEMA_VERSION)
+    this.version(3)
       .stores({
         profiles: 'id, updatedAt',
         goals: 'id, updatedAt',
@@ -111,6 +111,45 @@ export class NubNutritionDatabase extends Dexie {
             g.waterTargetMl = 3000;
           }
         });
+      });
+
+    // Version 4: Substantial expansion of food catalog (Japanese, Indian, Korean, Thai, Western, Cafe)
+    this.version(CURRENT_DB_SCHEMA_VERSION)
+      .stores({
+        profiles: 'id, updatedAt',
+        goals: 'id, updatedAt',
+        foodCatalog: 'id, name, category, source, usageCount, updatedAt',
+        meals: 'id, date, category, [date+category]',
+        mealItems: 'id, mealId, date, category, foodCatalogId, createdAt',
+        weightLogs: 'id, date, createdAt',
+        activityLogs: 'id, date, activityType, createdAt',
+        scanLogs: 'id, date, status, createdAt',
+        settings: 'id, updatedAt',
+      })
+      .upgrade(async (tx) => {
+        const seedItems = getInitialFoodCatalog();
+        const catalogTable = tx.table<FoodCatalogItem, string>('foodCatalog');
+        for (const seed of seedItems) {
+          const existing = await catalogTable.get(seed.id);
+          if (!existing) {
+            await catalogTable.put(seed);
+          } else {
+            await catalogTable.update(seed.id, {
+              name: seed.name,
+              category: seed.category,
+              portionPresets: seed.portionPresets,
+              defaultServingGrams: seed.defaultServingGrams,
+              caloriesPer100g: seed.caloriesPer100g,
+              proteinPer100g: seed.proteinPer100g,
+              carbsPer100g: seed.carbsPer100g,
+              fatPer100g: seed.fatPer100g,
+              sodiumMgPer100g: seed.sodiumMgPer100g,
+              sugarGPer100g: seed.sugarGPer100g,
+              source: seed.source,
+              sourceLabel: seed.sourceLabel,
+            });
+          }
+        }
       });
   }
 }
@@ -148,10 +187,18 @@ export async function initializeDatabase(): Promise<void> {
         const existing = await db.foodCatalog.get(seedItem.id);
         if (!existing) {
           await db.foodCatalog.put(seedItem);
-        } else if (!existing.portionPresets && seedItem.portionPresets) {
+        } else {
           await db.foodCatalog.update(seedItem.id, {
             name: seedItem.name,
+            category: seedItem.category,
             portionPresets: seedItem.portionPresets,
+            defaultServingGrams: seedItem.defaultServingGrams,
+            caloriesPer100g: seedItem.caloriesPer100g,
+            proteinPer100g: seedItem.proteinPer100g,
+            carbsPer100g: seedItem.carbsPer100g,
+            fatPer100g: seedItem.fatPer100g,
+            sodiumMgPer100g: seedItem.sodiumMgPer100g,
+            sugarGPer100g: seedItem.sugarGPer100g,
           });
         }
       }

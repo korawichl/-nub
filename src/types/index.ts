@@ -6,6 +6,7 @@ export type ThemeMode = 'dark' | 'twilight' | 'light';
 export type FoodSourceType =
   | 'usda_reference'
   | 'thai_reference'
+  | 'international_reference'
   | 'user_custom'
   | 'user_estimated'
   | 'ai_confirmed'

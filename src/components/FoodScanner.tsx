@@ -1,11 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import type {
   AppSettings,
   ConfirmMealDraft,
   FoodCatalogItem,
   MealCategory,
 } from '../types';
-import { getFoodAnalysisProvider, compressImageBlob, type CompressedImageResult } from '../services/aiProvider';
+import {
+  getFoodAnalysisProvider,
+  compressImageBlob,
+  analyzeTextWithFreeZeroKeyAI,
+  type CompressedImageResult,
+} from '../services/aiProvider';
 import { db } from '../db/database';
 import { getBangkokDateString } from '../utils/date';
 import { calculateFoodNutrition, estimateRoughNutrition } from '../utils/nutritionCalculator';
@@ -61,6 +66,8 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
   >('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCuisineTab, setSelectedCuisineTab] = useState<string>('ALL');
+  const [isEstimatingQuery, setIsEstimatingQuery] = useState(false);
   const [isBarcodeOpen, setIsBarcodeOpen] = useState(false);
   const [quickMealInput, setQuickMealInput] = useState('');
 
@@ -250,7 +257,11 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
     }
   };
 
-  const handleSelectCatalogForConfirm = async (food: FoodCatalogItem) => {
+  const handleSelectCatalogForConfirm = async (
+    food: FoodCatalogItem,
+    overrideGrams?: number
+  ) => {
+    const servingGrams = overrideGrams && overrideGrams > 0 ? overrideGrams : food.defaultServingGrams;
     const portion = calculateFoodNutrition(
       {
         calories: food.caloriesPer100g,
@@ -258,7 +269,7 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
         carbohydrates: food.carbsPer100g,
         fat: food.fatPer100g,
       },
-      food.defaultServingGrams
+      servingGrams
     );
 
     if (selectedFile) {
@@ -316,9 +327,144 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
     });
   };
 
-  const filteredCatalog = catalog.filter((item) =>
-    item.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
-  );
+  const handleManualCustomMealWithName = (name: string) => {
+    const clean = name.trim();
+    onOpenConfirmMeal({
+      foodName: clean,
+      ingredients: clean,
+      servingGrams: 200,
+      calories: 0,
+      protein: 0,
+      carbohydrates: 0,
+      fat: 0,
+      category: mealCategory,
+      source: 'user_estimated',
+      requiresExplicitConfirmation: false,
+    });
+  };
+
+  const handleInstantSearchQueryAI = async (queryText: string) => {
+    const clean = queryText.trim();
+    if (!clean) return;
+    setIsEstimatingQuery(true);
+    try {
+      let result;
+      if (provider.analyzeTextPrompt) {
+        result = await provider.analyzeTextPrompt(clean);
+      } else {
+        result = await analyzeTextWithFreeZeroKeyAI(clean);
+      }
+
+      onOpenConfirmMeal({
+        foodName: result.mealName || clean,
+        ingredients:
+          result.identifiedFoodItems?.map((i) => `${i.name} (~${i.estimatedGrams}g)`).join(', ') ||
+          clean,
+        servingGrams: result.estimatedWeightGrams || 250,
+        calories: result.estimatedCalories,
+        protein: result.protein,
+        carbohydrates: result.carbohydrates,
+        fat: result.fat,
+        sodiumMg: result.sodiumMg,
+        sugarG: result.sugarG,
+        category: mealCategory,
+        source: 'ai_confirmed',
+        uncertainties: result.uncertainties,
+        assumptions: result.assumptions,
+        requiresExplicitConfirmation: true,
+      });
+    } catch {
+      // Local zero-cost fallback
+      handleQuickLogFromPhoto(clean);
+    } finally {
+      setIsEstimatingQuery(false);
+    }
+  };
+
+  const CUISINE_TABS = [
+    { id: 'ALL', label: 'ทั้งหมด (All)' },
+    { id: 'JAPANESE', label: '🇯🇵 ญี่ปุ่น' },
+    { id: 'INDIAN', label: '🇮🇳 อินเดีย' },
+    { id: 'KOREAN', label: '🇰🇷 เกาหลี' },
+    { id: 'THAI', label: '🇹🇭 อาหารไทย' },
+    { id: 'WESTERN', label: '🥩 ตะวันตก' },
+    { id: 'FITNESS', label: '🥗 คลีน/สุขภาพ' },
+    { id: 'DRINKS', label: '☕ เครื่องดื่ม/ขนม' },
+  ] as const;
+
+  const filteredCatalog = useMemo(() => {
+    return catalog.filter((item) => {
+      const q = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        (item.category && item.category.toLowerCase().includes(q));
+
+      if (!matchesSearch) return false;
+
+      if (selectedCuisineTab === 'ALL') return true;
+
+      const cat = (item.category || '').toLowerCase();
+      const name = item.name.toLowerCase();
+
+      if (selectedCuisineTab === 'JAPANESE') {
+        return (
+          cat.includes('ญี่ปุ่น') ||
+          cat.includes('japanese') ||
+          /ซูชิ|ซาชิมิ|ราเมง|กิวด้ง|คัตสึ|อุด้ง|มิโซะ|ทาโกะ|โอโคโนมิ|เกี๊ยวซ่า|คาราเกะ|ถั่วแระ/i.test(name)
+        );
+      }
+      if (selectedCuisineTab === 'INDIAN') {
+        return (
+          cat.includes('อินเดีย') ||
+          cat.includes('indian') ||
+          /บริยานี|บัตเตอร์ชิกเก้น|ทิกก้า|นาน|โรตี|ดาล|ปาเนียร์|ซาโมซา|ชานา|ทันดูรี|มาซาลา/i.test(name)
+        );
+      }
+      if (selectedCuisineTab === 'KOREAN') {
+        return (
+          cat.includes('เกาหลี') ||
+          cat.includes('korean') ||
+          /บิบิมบับ|กิมจิ|ซุนดูบู|สามชั้น|ซัมกยอบซัล|ต๊อกบกกี|จาจัง|คิมบับ|ยังนยอม|บุลโกกิ/i.test(name)
+        );
+      }
+      if (selectedCuisineTab === 'THAI') {
+        return (
+          cat.includes('ไทย') ||
+          cat.includes('thai') ||
+          /ข้าวมันไก่|กะเพรา|สุกี้|ขาหมู|หมูปิ้ง|ข้าวเหนียว|แกงจืด|หมูกรอบ|ผัดไทย|ข้าวผัด|ส้มตำ|ลาบ|ต้มยำ|ก๋วยเตี๋ยว|ผัดซีอิ๊ว|ข้าวซอย/i.test(name)
+        );
+      }
+      if (selectedCuisineTab === 'WESTERN') {
+        return (
+          cat.includes('ตะวันตก') ||
+          cat.includes('western') ||
+          /สเต๊ก|พอร์คชอป|สปาเกตตี|คาโบนาร่า|โบโลเนส|เบอร์เกอร์|พิซซ่า|ซีซาร์|เฟรนช์ฟรายส์/i.test(name)
+        );
+      }
+      if (selectedCuisineTab === 'FITNESS') {
+        return (
+          cat.includes('คลีน') ||
+          cat.includes('สุขภาพ') ||
+          cat.includes('fitness') ||
+          cat.includes('protein') ||
+          cat.includes('supplement') ||
+          /อกไก่|ไข่ต้ม|เวย์|โอ๊ต|กล้วย|กรีกโยเกิร์ต|บรอกโคลี|เนยถั่ว/i.test(name)
+        );
+      }
+      if (selectedCuisineTab === 'DRINKS') {
+        return (
+          cat.includes('เครื่องดื่ม') ||
+          cat.includes('ของหวาน') ||
+          cat.includes('cafe') ||
+          cat.includes('sweet') ||
+          /ชานม|ชาไทย|มัทฉะ|อเมริกาโน่|ลาเต้|ข้าวเหนียวมะม่วง/i.test(name)
+        );
+      }
+
+      return true;
+    });
+  }, [catalog, searchQuery, selectedCuisineTab]);
 
   return (
     <div className="screen-container">
@@ -575,59 +721,210 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
       {/* Manual Food Search & Fallback Entry */}
       <section className="card">
         <div className="section-header">
-          <h2 className="section-title">
-            <Search size={18} /> Manual Food Search & Confirm
-          </h2>
+          <div>
+            <h2 className="section-title">
+              <Search size={18} /> ค้นหาเมนูอาหารหลากหลาย (Manual Food Search)
+            </h2>
+            <p className="screen-subtitle">
+              มีอาหารญี่ปุ่น, อินเดีย, เกาหลี, อาหารไทยยอดนิยม, สเต๊กตะวันตก, คลีน, เครื่องดื่มคาเฟ่ และของหวาน
+            </p>
+          </div>
           <button
             type="button"
             className="btn btn-primary btn-sm"
             onClick={handleManualBlankEntry}
           >
-            <Edit3 size={15} /> Custom Meal Entry
+            <Edit3 size={15} /> กรอกเมนูเอง
           </button>
         </div>
 
+        {/* Cuisine Filter Pills */}
+        <div
+          className="quick-chips-row"
+          style={{ marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.4rem' }}
+        >
+          {CUISINE_TABS.map((tab) => {
+            const isActive = selectedCuisineTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-secondary'}`}
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '20px',
+                }}
+                onClick={() => setSelectedCuisineTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search Input Bar */}
         <div className="search-bar-wrapper">
           <Search size={16} className="search-bar-icon" />
           <input
             type="search"
             className="input-text search-input"
-            placeholder="ค้นหาอาหารไทย หรือ English (เช่น ข้าวมันไก่, กะเพรา, อกไก่, เวย์)..."
+            placeholder="ค้นหาชื่ออาหาร เช่น ซูชิ, ราเมง, บริยานี, บัตเตอร์ชิกเก้น, บิบิมบับ, กะเพรา, ชานม..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <div className="catalog-results-list">
-          {filteredCatalog.map((food) => {
-            const servingKcal = Math.round(
-              (food.caloriesPer100g * food.defaultServingGrams) / 100
-            );
-            return (
-              <div key={food.id} className="catalog-item-row">
-                <div>
-                  <div className="catalog-item-title">{food.name}</div>
-                  <div className="catalog-item-sub">
-                    Per 100g: {food.caloriesPer100g} kcal · P {food.proteinPer100g}g · C{' '}
-                    {food.carbsPer100g}g · F {food.fatPer100g}g
-                  </div>
-                  <div className="catalog-item-source">{food.sourceLabel}</div>
+        {/* Zero Results Instant AI Estimation Fallback */}
+        {filteredCatalog.length === 0 ? (
+          <div
+            className="alert-banner alert-info"
+            style={{
+              marginTop: '0.75rem',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              gap: '0.75rem',
+              padding: '1rem',
+              borderRadius: '16px',
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles size={18} className="text-[#36B37E]" />
+              <strong>
+                {searchQuery.trim()
+                  ? `ไม่พบ "${searchQuery}" ในรายการที่บันทึกไว้`
+                  : 'ไม่มีรายการอาหารในหมวดหมู่นี้'}
+              </strong>
+            </div>
+            {searchQuery.trim() ? (
+              <>
+                <p className="text-xs text-[#858BA0] leading-relaxed">
+                  ไม่ต้องถ่ายรูป! ให้ระบบคำนวณแคลอรี่และสารอาหารสำหรับ{' '}
+                  <strong>"{searchQuery}"</strong> อัตโนมัติ หรือกรอกตัวเลขเองได้ทันที
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1 w-full">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm flex items-center gap-1.5"
+                    disabled={isEstimatingQuery}
+                    onClick={() => handleInstantSearchQueryAI(searchQuery)}
+                  >
+                    {isEstimatingQuery ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" /> กำลังประมวลผล...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={14} /> ⚡ คำนวณสารอาหารทันใจด้วย AI
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleManualCustomMealWithName(searchQuery)}
+                  >
+                    <Edit3 size={14} /> กรอกตัวเลขเอง
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => handleSelectCatalogForConfirm(food)}
-                >
-                  Select ({food.defaultServingGrams}g · {servingKcal} kcal)
-                </button>
-              </div>
-            );
-          })}
-        </div>
+              </>
+            ) : (
+              <p className="text-xs text-[#858BA0]">
+                ลองเลือกหมวดหมู่อื่น หรือพิมพ์ชื่ออาหารในช่องค้นหาด้านบน
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="catalog-results-list">
+            {filteredCatalog.map((food) => {
+              const servingKcal = Math.round(
+                (food.caloriesPer100g * food.defaultServingGrams) / 100
+              );
+              return (
+                <div key={food.id} className="catalog-item-row">
+                  <div style={{ flex: 1, minWidth: '220px' }}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="catalog-item-title">{food.name}</span>
+                      {food.category && (
+                        <span
+                          className="badge badge-info"
+                          style={{
+                            fontSize: '0.65rem',
+                            padding: '0.1rem 0.5rem',
+                            borderRadius: '12px',
+                          }}
+                        >
+                          {food.category}
+                        </span>
+                      )}
+                    </div>
+                    <div className="catalog-item-sub">
+                      ต่อ 100g: {food.caloriesPer100g} kcal · P {food.proteinPer100g}g · C{' '}
+                      {food.carbsPer100g}g · F {food.fatPer100g}g
+                      {(food.sodiumMgPer100g !== undefined ||
+                        food.sugarGPer100g !== undefined) && (
+                        <span style={{ marginLeft: 6, color: '#6258F5', fontWeight: 500 }}>
+                          ·{' '}
+                          {food.sodiumMgPer100g !== undefined &&
+                            `🧂 Na ${food.sodiumMgPer100g}mg `}
+                          {food.sugarGPer100g !== undefined &&
+                            `🍬 น้ำตาล ${food.sugarGPer100g}g`}
+                        </span>
+                      )}
+                    </div>
+                    <div className="catalog-item-source">{food.sourceLabel}</div>
+
+                    {/* Portion presets quick click pills */}
+                    {food.portionPresets && food.portionPresets.length > 0 && (
+                      <div
+                        className="quick-chips-row"
+                        style={{ marginTop: '0.45rem', marginBottom: '0.25rem', gap: '0.35rem' }}
+                      >
+                        {food.portionPresets.map((preset) => {
+                          const pKcal = Math.round(
+                            (food.caloriesPer100g * preset.grams) / 100
+                          );
+                          return (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              className="food-chip"
+                              style={{
+                                fontSize: '0.7rem',
+                                padding: '0.2rem 0.55rem',
+                                borderRadius: '14px',
+                                cursor: 'pointer',
+                              }}
+                              onClick={() =>
+                                handleSelectCatalogForConfirm(food, preset.grams)
+                              }
+                            >
+                              + {preset.label} ({pKcal} kcal)
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="catalog-item-controls">
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => handleSelectCatalogForConfirm(food)}
+                    >
+                      เลือก ({food.defaultServingGrams}g · {servingKcal} kcal)
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <div style={{ marginTop: '0.75rem' }}>
           <button type="button" className="btn-link" onClick={onNavigateToDiary}>
-            Or switch to the full Food Diary screen →
+            ไปยังหน้า Food Diary แบบเต็ม →
           </button>
         </div>
       </section>
