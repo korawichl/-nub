@@ -8,7 +8,7 @@ import type {
 import { getFoodAnalysisProvider } from '../services/aiProvider';
 import { db } from '../db/database';
 import { getBangkokDateString } from '../utils/date';
-import { calculateFoodNutrition } from '../utils/nutritionCalculator';
+import { calculateFoodNutrition, estimateRoughNutrition } from '../utils/nutritionCalculator';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 import {
   Camera,
@@ -55,6 +55,80 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isBarcodeOpen, setIsBarcodeOpen] = useState(false);
+  const [quickMealInput, setQuickMealInput] = useState('');
+
+  const handleQuickLogFromPhoto = (mealName: string) => {
+    const clean = (mealName || '').trim();
+    if (!clean) return;
+
+    const catalogMatch = catalog.find(
+      (c) =>
+        c.name.toLowerCase().includes(clean.toLowerCase()) ||
+        clean.toLowerCase().includes(c.name.toLowerCase())
+    );
+
+    const grams = catalogMatch?.defaultServingGrams || 250;
+    const calories = catalogMatch
+      ? Math.round((catalogMatch.caloriesPer100g * grams) / 100)
+      : /แซลมอน|ปลา/i.test(clean)
+      ? 320
+      : /กะเพรา|หมูสับ/i.test(clean)
+      ? 550
+      : /ไก่|อกไก่/i.test(clean)
+      ? 240
+      : /ไข่/i.test(clean)
+      ? 180
+      : 360;
+
+    const protein = catalogMatch
+      ? Math.round((catalogMatch.proteinPer100g * grams) / 100)
+      : /แซลมอน|ปลา/i.test(clean)
+      ? 34
+      : /ไก่|อกไก่/i.test(clean)
+      ? 30
+      : /กะเพรา/i.test(clean)
+      ? 25
+      : Math.round(calories * 0.05);
+
+    const carbs = catalogMatch
+      ? Math.round((catalogMatch.carbsPer100g * grams) / 100)
+      : /แซลมอน|ปลา/i.test(clean)
+      ? 8
+      : /กะเพรา|ข้าว/i.test(clean)
+      ? 55
+      : 35;
+
+    const fat = catalogMatch
+      ? Math.round((catalogMatch.fatPer100g * grams) / 100)
+      : /แซลมอน|ปลา/i.test(clean)
+      ? 16
+      : /กะเพรา/i.test(clean)
+      ? 24
+      : 12;
+
+    const rough = estimateRoughNutrition({
+      foodName: clean,
+      calories,
+      protein,
+      carbohydrates: carbs,
+      fat,
+    });
+
+    onOpenConfirmMeal({
+      foodName: clean,
+      ingredients: clean,
+      servingGrams: grams,
+      calories,
+      protein,
+      carbohydrates: carbs,
+      fat: rough.fat,
+      sodiumMg: rough.sodiumMg,
+      sugarG: rough.sugarG,
+      category: mealCategory,
+      source: 'user_estimated',
+      requiresExplicitConfirmation: true,
+    });
+  };
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
@@ -383,12 +457,64 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
                 </div>
               )}
 
-              {scanState === 'error' && errorMessage && (
-                <div className="alert-banner alert-danger" style={{ marginTop: '0.75rem' }}>
-                  <AlertCircle size={18} />
-                  <div>
-                    <strong>Analysis Notice</strong>
-                    <p>{errorMessage}</p>
+              {scanState === 'error' && (
+                <div
+                  className="alert-banner alert-danger flex flex-col gap-3 p-4 rounded-2xl"
+                  style={{ marginTop: '0.75rem' }}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle size={20} className="shrink-0 text-[#EB6478] mt-0.5" />
+                    <div>
+                      <strong className="block text-sm font-bold text-[#EB6478]">
+                        เซิร์ฟเวอร์ AI มีผู้ใช้งานหนาแน่น หรือโควต้า Free Tier เต็ม
+                      </strong>
+                      <p className="text-xs text-[#858BA0] mt-0.5 leading-relaxed">
+                        {errorMessage?.includes('โควต้า') || errorMessage?.includes('หนาแน่น')
+                          ? errorMessage
+                          : 'ระบบ AI ตอบสนองช้ากว่าปกติ คุณสามารถพิมพ์ชื่ออาหารเพื่อบันทึกด่วนพร้อมรูปถ่ายนี้ได้ทันที'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Instant 1-Tap Fallback: Type meal name & auto-estimate macros */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleQuickLogFromPhoto(quickMealInput);
+                    }}
+                    className="flex flex-col sm:flex-row gap-2 w-full pt-1"
+                  >
+                    <input
+                      type="text"
+                      className="input-text text-xs py-2 px-3 flex-1 rounded-xl"
+                      placeholder="พิมพ์ชื่ออาหาร เช่น แซลมอนดองซีอิ๊ว, ข้าวกะเพรา..."
+                      value={quickMealInput}
+                      onChange={(e) => setQuickMealInput(e.target.value)}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!quickMealInput.trim()}
+                      className="btn btn-primary btn-sm py-2 px-4 whitespace-nowrap"
+                    >
+                      ⚡ บันทึกและคำนวณด่วน
+                    </button>
+                  </form>
+
+                  <div className="flex items-center gap-3 pt-1">
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm text-[11px]"
+                      onClick={handleRunAiAnalysis}
+                    >
+                      🔄 ลองวิเคราะห์ใหม่อีกครั้ง
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-link text-[11px]"
+                      onClick={handleManualBlankEntry}
+                    >
+                      ✏️ กรอกข้อมูลเองแบบละเอียด
+                    </button>
                   </div>
                 </div>
               )}

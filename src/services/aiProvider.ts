@@ -137,8 +137,8 @@ export function validateFoodAnalysisResult(raw: unknown): FoodAnalysisResult {
  */
 async function compressImageBlobToBase64(
   blob: Blob,
-  maxDimension: number = 640,
-  quality: number = 0.72
+  maxDimension: number = 512,
+  quality: number = 0.65
 ): Promise<{ base64: string; mimeType: string }> {
   if (typeof document === 'undefined' || typeof Image === 'undefined') {
     // Node/Test environment fallback
@@ -258,13 +258,11 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
 
   constructor(apiKey?: string, preferredModel?: string) {
     this.apiKey = (apiKey || '').trim();
-    const rawModel = (preferredModel || 'gemini-3.5-flash-lite').trim();
-    // Map deprecated 2.5 models to fast working vision model while preserving Pro or 3.x choices
+    const rawModel = (preferredModel || 'gemini-2.5-flash').trim();
+    // Prefer high-speed free-tier Flash models (gemini-2.5-flash, gemini-3.5-flash-lite, gemini-3.8-flash)
     this.preferredModel =
-      rawModel === 'gemini-2.5-flash'
-        ? 'gemini-3.5-flash-lite'
-        : rawModel === 'gemini-2.5-pro'
-        ? 'gemini-pro-latest'
+      rawModel.includes('pro') || rawModel.includes('argon')
+        ? 'gemini-2.5-flash'
         : rawModel;
     this.status = this.apiKey ? 'ready' : 'not_configured';
   }
@@ -301,17 +299,16 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
     try {
       const { base64, mimeType } = await compressImageBlobToBase64(imageBlob);
 
-      // Try user's preferred model first (e.g. Gemini Pro or Flash), then cascade through verified working vision models
+      // Fast vision models with thinkingBudget: 0 for 1-2s turbo response
+      const rawPreferred = (this.preferredModel || '').trim();
+      const isPro = rawPreferred.includes('pro');
+
       const modelsToTry = [
-        this.preferredModel,
+        !isPro && rawPreferred ? rawPreferred : 'gemini-2.5-flash',
+        'gemini-2.5-flash-lite',
         'gemini-3.5-flash-lite',
-        'gemini-3.6-flash',
-        'gemini-3.5-flash',
         'gemini-3.8-flash',
-        'gemini-pro-latest',
-        'gemini-3.1-pro-preview',
-        'gemma-4-26b-a4b-it',
-        'gemma-4-31b-it',
+        'gemini-1.5-flash',
       ].filter((m, idx, arr) => Boolean(m) && arr.indexOf(m) === idx);
 
       const errors: string[] = [];
@@ -336,14 +333,21 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
               },
             ],
             generationConfig: isGemma
-              ? { temperature: 0.1 }
-              : { response_mime_type: 'application/json', temperature: 0.1 },
+              ? { temperature: 0.1, maxOutputTokens: 800 }
+              : {
+                  response_mime_type: 'application/json',
+                  responseMimeType: 'application/json',
+                  temperature: 0.1,
+                  maxOutputTokens: 800,
+                  thinking_config: { thinking_budget: 0 },
+                  thinkingConfig: { thinkingBudget: 0 },
+                },
           };
 
           const controller = new AbortController();
           const timeoutId = setTimeout(
-            () => controller.abort(new Error('Request timed out after 28s')),
-            28000
+            () => controller.abort(new Error('Request timed out after 8s')),
+            8000
           );
 
           let response: Response;
@@ -390,9 +394,29 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
         }
       }
 
-      throw new Error(
-        `All vision models failed or were busy (${errors.join(' | ')}).`
+      const isQuota = errors.some(
+        (e) =>
+          e.includes('quota') ||
+          e.includes('RESOURCE_EXHAUSTED') ||
+          e.includes('429')
       );
+      const isHighDemand = errors.some(
+        (e) => e.includes('high demand') || e.includes('503')
+      );
+
+      if (isQuota) {
+        throw new Error(
+          'โควต้า Google AI (Free Tier) ของคีย์นี้เต็มชั่วคราว คุณสามารถพิมพ์ชื่ออาหารเพื่อบันทึกด่วนด้านล่างได้ทันที'
+        );
+      } else if (isHighDemand) {
+        throw new Error(
+          'เซิร์ฟเวอร์ Google AI มีผู้ใช้งานหนาแน่นชั่วคราว กรุณากดลองใหม่อีกครั้ง หรือพิมพ์ชื่ออาหารเพื่อบันทึกด่วนได้ทันที'
+        );
+      } else {
+        throw new Error(
+          'การเชื่อมต่อ AI ล่าช้า กรุณากดลองใหม่อีกครั้ง หรือพิมพ์ชื่ออาหารเพื่อบันทึกด่วนด้านล่าง'
+        );
+      }
     } catch (err) {
       this.status = 'failed';
       throw err instanceof Error
@@ -417,13 +441,15 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
     }
 
     this.status = 'processing';
+    const rawPreferred = (this.preferredModel || '').trim();
+    const isPro = rawPreferred.includes('pro');
+
     const modelsToTry = [
-      this.preferredModel,
+      !isPro && rawPreferred ? rawPreferred : 'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
       'gemini-3.5-flash-lite',
-      'gemini-3.6-flash',
-      'gemini-3.5-flash',
       'gemini-3.8-flash',
-      'gemini-pro-latest',
+      'gemini-1.5-flash',
     ].filter((m, idx, arr) => Boolean(m) && arr.indexOf(m) === idx);
 
     const fullInstruction = `Analyze this food description written by the user: "${cleanPrompt}". Identify all dishes/beverages, estimate total serving weight in grams, total calories, macronutrients (protein, carbohydrates, fat), sodium in mg, and sugar in grams. Return ONLY a valid JSON object matching:
@@ -451,11 +477,18 @@ export class DirectGeminiFoodAnalysisProvider implements FoodAnalysisProvider {
         const payload = {
           contents: [{ parts: [{ text: fullInstruction }] }],
           generationConfig: isGemma
-            ? { temperature: 0.1 }
-            : { response_mime_type: 'application/json', temperature: 0.1 },
+            ? { temperature: 0.1, maxOutputTokens: 800 }
+            : {
+                response_mime_type: 'application/json',
+                responseMimeType: 'application/json',
+                temperature: 0.1,
+                maxOutputTokens: 800,
+                thinking_config: { thinking_budget: 0 },
+                thinkingConfig: { thinkingBudget: 0 },
+              },
         };
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(new Error('Timed out')), 18000);
+        const timeoutId = setTimeout(() => controller.abort(new Error('Timed out')), 8000);
         let response: Response;
         try {
           response = await fetch(endpoint, {

@@ -490,29 +490,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     value={geminiModel}
                     onChange={(e) => setGeminiModel(e.target.value)}
                   >
+                    <option value="gemini-2.5-flash">
+                      Gemini 2.5 Flash (แนะนำ: เสถียร แม่นยำสูง & ประมวลผลไวใน 1-2 วินาที)
+                    </option>
                     <option value="gemini-3.5-flash-lite">
-                      Gemini 3.5 Flash Lite (แนะนำ: เร็วที่สุด ~2 วินาที & โควตาว่างเสมอ)
-                    </option>
-                    <option value="gemini-pro-latest">
-                      Gemini Pro Latest (Pro Model + สลับ Flash อัตโนมัติหากโควตาเต็ม)
-                    </option>
-                    <option value="gemini-3.1-pro-preview">
-                      Gemini 3.1 Pro Preview (Pro Reasoning + Auto-Failover)
-                    </option>
-                    <option value="gemini-4-argon">
-                      Gemini 4 Argon (Flagship Pro + Auto-Failover)
-                    </option>
-                    <option value="gemini-3.6-flash">
-                      Gemini 3.6 Flash (แม่นยำสูง + สลับสำรองอัตโนมัติ)
-                    </option>
-                    <option value="gemini-3.5-flash">
-                      Gemini 3.5 Flash (สมดุลความเร็วและความแม่นยำ)
+                      Gemini 3.5 Flash Lite (เร็วที่สุด: โควตาฟรีสูง & วิเคราะห์ไวมาก)
                     </option>
                     <option value="gemini-3.8-flash">
-                      Gemini 3.8 Flash (รุ่นล่าสุด + Auto-Failover)
+                      Gemini 3.8 Flash (รุ่นล่าสุด ปิด Thinking วิเคราะห์ทันใจ)
                     </option>
-                    <option value="gemma-4-26b-a4b-it">
-                      Gemma 4 26B Vision (Open-Weights Multimodal ฟรี)
+                    <option value="gemini-2.5-flash-lite">
+                      Gemini 2.5 Flash Lite (น้ำหนักเบาและประหยัดแบนด์วิดท์)
                     </option>
                   </select>
                 </div>
