@@ -14,14 +14,37 @@ describe('Expanded Food Catalog & Multi-Cuisine Search', () => {
       item.category?.includes('ญี่ปุ่น') ||
       /salmon sushi|ramen|gyudon|katsudon|miso soup|takoyaki|okonomiyaki|edamame/i.test(item.name)
     );
-    expect(japaneseItems.length).toBeGreaterThanOrEqual(10);
+    expect(japaneseItems.length).toBeGreaterThanOrEqual(25);
 
-    const hasSushi = catalog.some((i) => i.id === 'food_jp_salmon_sushi_nigiri');
-    const hasRamen = catalog.some((i) => i.id === 'food_jp_tonkotsu_ramen');
-    const hasGyudon = catalog.some((i) => i.id === 'food_jp_gyudon_beef_bowl');
-    expect(hasSushi).toBe(true);
-    expect(hasRamen).toBe(true);
-    expect(hasGyudon).toBe(true);
+    // Verify Donburi Bowls
+    expect(catalog.some((i) => i.id === 'food_jp_gyudon_beef_bowl')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_gyudon_onsen_egg')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_butadon_pork')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_katsudon_pork')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_ebi_katsudon')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_sake_ikura_don')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_kaisen_don')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_tekkadon_maguro')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_negitoro_don')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_wagyu_steak_don')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_aburi_chashudon')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_saba_teriyaki_don')).toBe(true);
+
+    // Verify Sushi Varieties (Nigiri, Gunkan, Rolls)
+    expect(catalog.some((i) => i.id === 'food_jp_salmon_sushi_nigiri')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_aburi_salmon_saikyo')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_salmon_toro_sushi')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_maguro_sushi')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_hamachi_sushi')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_hotate_sushi')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_unagi_sushi')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_tamago_sushi')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_aburi_wagyu_sushi')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_ikura_gunkan')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_tobiko_gunkan')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_california_roll')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_spicy_salmon_roll')).toBe(true);
+    expect(catalog.some((i) => i.id === 'food_jp_inari_sushi')).toBe(true);
   });
 
   it('includes popular Indian dishes (Biryani, Butter Chicken, Tikka Masala, Naan, Dal)', () => {
