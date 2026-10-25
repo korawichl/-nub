@@ -149,6 +149,9 @@ export interface AppSettings {
   geminiApiKey?: string;
   groqApiKey?: string;
   aiBackendEndpoint?: string;
+  githubToken?: string;
+  githubRepo?: string;
+  githubBranch?: string;
   updatedAt: string;
 }
 

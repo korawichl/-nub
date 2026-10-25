@@ -62,6 +62,7 @@ import {
   Share2,
   AlertTriangle,
   Loader2,
+  Calendar,
 } from 'lucide-react';
 
 interface TodayDashboardProps {
@@ -557,13 +558,22 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
           1. TOP SECTION: QUICK STATS (6 ROUNDED PILL CARDS IN A ROW)
          ========================================================================= */}
       <div className="flex flex-col gap-3">
-        <div className="flex items-baseline justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-bold text-[#20243A] tracking-tight">Quick Stats</h2>
             <p className="text-xs text-[#858BA0] mt-0.5">
               Your nutrition & calorie budget for {formatDisplayDate(todayBangkok)}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => onNavigateToDiary()}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] rounded-2xl transition-all cursor-pointer shadow-xs shrink-0"
+            title="ดูปฏิทินประวัติอาหารย้อนหลัง & ส่งออก Git"
+          >
+            <Calendar className="w-4 h-4 text-[#6258F5]" />
+            <span>📅 ปฏิทินประวัติ & Git</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3.5">

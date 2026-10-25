@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import type {
+  AppSettings,
   ConfirmMealDraft,
   FoodCatalogItem,
   MealCategory,
   MealItem,
   NutritionGoals,
+  UserProfile,
 } from '../types';
 import {
   formatDisplayDate,
@@ -31,13 +33,18 @@ import {
   Search,
   Check,
   X,
+  BookOpen,
 } from 'lucide-react';
+import { MonthlyCalendar } from './MonthlyCalendar';
 
 interface FoodDiaryProps {
   selectedDate: string;
   onChangeDate: (date: string) => void;
   dayItems: MealItem[];
+  allMealItems?: MealItem[];
   goals: NutritionGoals;
+  profile?: UserProfile;
+  settings?: AppSettings;
   catalog: FoodCatalogItem[];
   initialCategory?: MealCategory;
   editingItem: MealItem | null;
@@ -56,13 +63,37 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
   selectedDate,
   onChangeDate,
   dayItems,
+  allMealItems = [],
   goals,
+  profile = {
+    id: 'default_profile',
+    age: 18,
+    sex: 'male',
+    heightCm: 180,
+    initialWeightKg: 88,
+    targetWeightKg: 80,
+    goal: 'fat_loss',
+    activityLevel: 'high',
+    training: 'swimming and strength training',
+    platform: 'PWA',
+    storage: 'local device only',
+    budget: 'free-first',
+    updatedAt: new Date().toISOString(),
+  },
+  settings = {
+    id: 'default_settings',
+    theme: 'dark',
+    timezone: 'Asia/Bangkok',
+    aiProviderId: 'free_builtin',
+    updatedAt: new Date().toISOString(),
+  },
   catalog,
   initialCategory = 'breakfast',
   editingItem,
   onClearEditingItem,
   onOpenConfirmMeal,
 }) => {
+  const [viewMode, setViewMode] = useState<'daily' | 'calendar'>('daily');
   const [activeCategory, setActiveCategory] =
     useState<MealCategory>(initialCategory);
   const [searchTerm, setSearchTerm] = useState('');
@@ -230,46 +261,102 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
 
   return (
     <div className="screen-container">
-      {/* Date Navigation Bar */}
-      <header className="card diary-date-bar">
-        <div className="date-nav-controls">
+      {/* Top Segmented Mode Switcher: Daily Log vs. Monthly Calendar */}
+      <div className="flex items-center justify-between gap-3 mb-4 bg-white p-2 rounded-2xl border border-[#E9EAF2] shadow-2xs">
+        <div className="flex bg-[#EFEDFF]/70 p-1 rounded-xl w-full sm:w-auto">
           <button
             type="button"
-            className="icon-btn"
-            onClick={() => onChangeDate(shiftDateString(selectedDate, -1))}
-            aria-label="Previous day"
+            onClick={() => setViewMode('daily')}
+            className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all flex-1 sm:flex-none cursor-pointer ${
+              viewMode === 'daily'
+                ? 'bg-white text-[#6258F5] shadow-xs'
+                : 'text-[#858BA0] hover:text-[#20243A]'
+            }`}
           >
-            <ChevronLeft size={20} />
+            <BookOpen size={14} />
+            <span>📖 บันทึกรายวัน (Daily View)</span>
           </button>
-
-          <div className="date-picker-center">
-            <Calendar size={16} />
-            <input
-              type="date"
-              className="date-input-native"
-              value={selectedDate}
-              onChange={(e) => {
-                if (e.target.value) onChangeDate(e.target.value);
-              }}
-              aria-label="Select diary date"
-            />
-            <span className="date-friendly-label">
-              {formatDisplayDate(selectedDate)}
-              {selectedDate === todayStr && (
-                <span className="today-tag">Today</span>
-              )}
-            </span>
-          </div>
-
           <button
             type="button"
-            className="icon-btn"
-            onClick={() => onChangeDate(shiftDateString(selectedDate, 1))}
-            aria-label="Next day"
+            onClick={() => setViewMode('calendar')}
+            className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all flex-1 sm:flex-none cursor-pointer ${
+              viewMode === 'calendar'
+                ? 'bg-white text-[#6258F5] shadow-xs'
+                : 'text-[#858BA0] hover:text-[#20243A]'
+            }`}
           >
-            <ChevronRight size={20} />
+            <Calendar size={14} />
+            <span>📅 ปฏิทินย้อนหลัง & บันทึก Git</span>
           </button>
         </div>
+
+        {viewMode === 'daily' && (
+          <button
+            type="button"
+            onClick={() => setViewMode('calendar')}
+            className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-[#6258F5] hover:underline px-2"
+          >
+            <span>ดูภาพรวมปฏิทินทั้งเดือน →</span>
+          </button>
+        )}
+      </div>
+
+      {viewMode === 'calendar' ? (
+        <MonthlyCalendar
+          selectedDate={selectedDate}
+          onSelectDate={onChangeDate}
+          allMealItems={allMealItems}
+          goals={goals}
+          profile={profile}
+          settings={settings}
+          onOpenDailyDiary={(date) => {
+            onChangeDate(date);
+            setViewMode('daily');
+          }}
+          onBackToDaily={() => setViewMode('daily')}
+        />
+      ) : (
+        <>
+          {/* Date Navigation Bar */}
+          <header className="card diary-date-bar">
+            <div className="date-nav-controls">
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => onChangeDate(shiftDateString(selectedDate, -1))}
+                aria-label="Previous day"
+              >
+                <ChevronLeft size={20} />
+              </button>
+
+              <div className="date-picker-center">
+                <Calendar size={16} />
+                <input
+                  type="date"
+                  className="date-input-native"
+                  value={selectedDate}
+                  onChange={(e) => {
+                    if (e.target.value) onChangeDate(e.target.value);
+                  }}
+                  aria-label="Select diary date"
+                />
+                <span className="date-friendly-label">
+                  {formatDisplayDate(selectedDate)}
+                  {selectedDate === todayStr && (
+                    <span className="today-tag">Today</span>
+                  )}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => onChangeDate(shiftDateString(selectedDate, 1))}
+                aria-label="Next day"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
 
         {/* Daily Nutrition Totals Summary Strip */}
         <div className="diary-summary-strip">
@@ -784,6 +871,8 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
           })}
         </div>
       </section>
+        </>
+      )}
     </div>
   );
 };

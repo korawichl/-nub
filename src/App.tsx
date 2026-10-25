@@ -451,7 +451,10 @@ export const App: React.FC = () => {
                 selectedDate={selectedDate}
                 onChangeDate={setSelectedDate}
                 dayItems={selectedDateItems}
+                allMealItems={allMealItems}
                 goals={goals}
+                profile={profile}
+                settings={settings}
                 catalog={catalog}
                 initialCategory={diaryCategory}
                 editingItem={editingMealItem}
