@@ -10,7 +10,7 @@ import {
   createInitialSettings,
 } from './db/seedData';
 import type { ConfirmMealDraft, MealCategory, MealItem, ThemeMode } from './types';
-import { getBangkokDateString } from './utils/date';
+import { getBangkokDateString, getMealCategoryByTime } from './utils/date';
 import { calculateStreak } from './utils/nutritionCalculator';
 import { TodayDashboard } from './components/TodayDashboard';
 import { FoodScanner } from './components/FoodScanner';
@@ -38,7 +38,9 @@ type ActiveTab = 'dashboard' | 'diary' | 'scanner' | 'confirm' | 'progress' | 's
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [selectedDate, setSelectedDate] = useState<string>(getBangkokDateString());
-  const [diaryCategory, setDiaryCategory] = useState<MealCategory>('breakfast');
+  const [diaryCategory, setDiaryCategory] = useState<MealCategory>(() =>
+    getMealCategoryByTime()
+  );
   const [confirmDraft, setConfirmDraft] = useState<ConfirmMealDraft | null>(null);
   const [editingMealItem, setEditingMealItem] = useState<MealItem | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);

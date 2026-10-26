@@ -1,5 +1,6 @@
 import type { AIProviderStatus } from '../types';
 import { estimateRoughNutrition } from '../utils/nutritionCalculator';
+import { isSnackOrBeverageFood } from '../utils/date';
 
 export interface IdentifiedFoodItem {
   name: string;
@@ -20,6 +21,7 @@ export interface FoodAnalysisResult {
   fat: number;
   sodiumMg?: number;
   sugarG?: number;
+  isSnack?: boolean;
   uncertainties: string[];
   assumptions: string[];
   requiresUserConfirmation: true;
@@ -170,6 +172,13 @@ export function validateFoodAnalysisResult(raw: unknown): FoodAnalysisResult {
     sugarG: rawSugar,
   });
 
+  const rawIsSnack = typeof obj.isSnack === 'boolean' ? obj.isSnack : undefined;
+  const isSnack = isSnackOrBeverageFood(
+    `${rawMealName} ${identifiedFoodItems.map((i) => i.name).join(' ')}`,
+    undefined,
+    rawIsSnack
+  );
+
   return {
     mealName: rawMealName,
     identifiedFoodItems,
@@ -180,6 +189,7 @@ export function validateFoodAnalysisResult(raw: unknown): FoodAnalysisResult {
     fat: estimates.fat,
     sodiumMg: estimates.sodiumMg,
     sugarG: estimates.sugarG,
+    isSnack,
     uncertainties: toStringArray(obj.uncertainties),
     assumptions: toStringArray(obj.assumptions),
     requiresUserConfirmation: true,
@@ -355,9 +365,11 @@ export async function compressImageBlobToBase64(
 }
 
 const NUTRITION_VISION_PROMPT = `Analyze this food or drink photo in detail. Identify the dish/beverage (use Thai + English name if it is Thai food or drink) and estimate its serving weight in grams, total calories, macronutrients (protein, carbohydrates, fat), sodium in mg, and sugar in grams. Always provide realistic non-zero estimates for fat, sugar, and sodium based on the ingredients, cooking method (stir-fried, soup, sauce, etc.).
+Also determine "isSnack": set true if the photo shows a snack, dessert, sweet, bakery item, pastry, cake, ice cream, chips, or beverage/drink (ขนม, ของว่าง, ของหวาน, เบเกอรี่, เครื่องดื่ม); set false if it is a main savory meal (ข้าว, ก๋วยเตี๋ยว, สเต๊ก, กับข้าว ฯลฯ).
 Return ONLY a valid JSON object matching this exact schema (no markdown explanation):
 {
   "mealName": "Dish or drink name (e.g. เกาเหลาเนื้อตุ๋น, โกโก้ปั่นวิปครีม, ข้าวมันไก่ต้ม)",
+  "isSnack": false,
   "identifiedFoodItems": [
     {
       "name": "Ingredient name",
@@ -641,10 +653,11 @@ export async function analyzeImageWithFreeZeroKeyAI(imageBlob: Blob): Promise<Fo
 - Visual scene description: "${visualCaption || 'food or drink item'}"
 Note: Ignore any mobile app UI chrome if the image was a phone screenshot; focus strictly on the food or drink shown.
 
-Identify the dish or drink (use Thai + English name) and estimate realistic serving weight in grams, calories, protein, carbohydrates, fat, sodiumMg, and sugarG.
+Identify the dish or drink (use Thai + English name), set "isSnack": true if it is a snack/dessert/bakery/drink or false if it is a main meal, and estimate realistic serving weight in grams, calories, protein, carbohydrates, fat, sodiumMg, and sugarG.
 Return ONLY a valid JSON object matching this exact schema:
 {
   "mealName": "Thai + English dish/drink name (e.g. ชานมคามิเลีย KAMU, แซนด์วิชแฮมชีส, ข้าวมันไก่)",
+  "isSnack": true,
   "identifiedFoodItems": [
     { "name": "Item name", "estimatedGrams": 250, "estimatedCalories": 280, "protein": 8, "carbohydrates": 38, "fat": 9 }
   ],

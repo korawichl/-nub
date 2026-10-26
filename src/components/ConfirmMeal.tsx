@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import type { ConfirmMealDraft, MealCategory } from '../types';
 import { addMealItemSnapshot, db } from '../db/database';
-import { getBangkokDateString } from '../utils/date';
+import {
+  getBangkokDateString,
+  getMealCategoryByTime,
+  isSnackOrBeverageFood,
+} from '../utils/date';
 import { estimateRoughNutrition } from '../utils/nutritionCalculator';
 import { Check, X, AlertTriangle, Info, UtensilsCrossed } from 'lucide-react';
 
@@ -45,6 +49,14 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
     initialEstimates.sugarG > 0 ? String(initialEstimates.sugarG) : ''
   );
   const [category, setCategory] = useState<MealCategory>(draft.category);
+  const [categoryReason, setCategoryReason] = useState<
+    'time' | 'snack_detected' | 'manual'
+  >(() => {
+    if (draft.autoCategorizedReason) return draft.autoCategorizedReason;
+    return isSnackOrBeverageFood(`${draft.foodName} ${draft.ingredients}`)
+      ? 'snack_detected'
+      : 'time';
+  });
   const [saveToCatalog, setSaveToCatalog] = useState(Boolean(draft.saveToCatalog));
   const [explicitlyConfirmed, setExplicitlyConfirmed] = useState(
     !draft.requiresExplicitConfirmation
@@ -239,25 +251,61 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
                 className="input-text"
                 placeholder="e.g., Grilled Chicken Breast with Rice"
                 value={foodName}
-                onChange={(e) => setFoodName(e.target.value)}
+                onChange={(e) => {
+                  const nextName = e.target.value;
+                  setFoodName(nextName);
+                  if (categoryReason !== 'manual') {
+                    const snackDetected = isSnackOrBeverageFood(
+                      `${nextName} ${ingredients}`
+                    );
+                    if (snackDetected) {
+                      setCategory('snacks');
+                      setCategoryReason('snack_detected');
+                    } else {
+                      setCategory(getMealCategoryByTime());
+                      setCategoryReason('time');
+                    }
+                  }
+                }}
                 required
               />
             </div>
 
             <div className="form-field">
-              <label htmlFor="confirm-meal-cat" className="field-label">
-                Meal Category *
+              <label
+                htmlFor="confirm-meal-cat"
+                className="field-label flex items-center justify-between gap-2"
+              >
+                <span>Meal Category *</span>
+                {categoryReason === 'snack_detected' && (
+                  <span className="text-[11px] font-semibold text-[#D97706] bg-[#FEF3C7] px-2 py-0.5 rounded-full">
+                    🍰 จัดหมวดขนมอัตโนมัติ (เปลี่ยนได้)
+                  </span>
+                )}
+                {categoryReason === 'time' && (
+                  <span className="text-[11px] font-semibold text-[#6258F5] bg-[#EFEDFF] px-2 py-0.5 rounded-full">
+                    🕒 อิงตามเวลาอัตโนมัติ (เปลี่ยนได้)
+                  </span>
+                )}
+                {categoryReason === 'manual' && (
+                  <span className="text-[11px] font-semibold text-[#059669] bg-[#D1FAE5] px-2 py-0.5 rounded-full">
+                    📌 เลือกมื้อเอง
+                  </span>
+                )}
               </label>
               <select
                 id="confirm-meal-cat"
                 className="input-select"
                 value={category}
-                onChange={(e) => setCategory(e.target.value as MealCategory)}
+                onChange={(e) => {
+                  setCategory(e.target.value as MealCategory);
+                  setCategoryReason('manual');
+                }}
               >
-                <option value="breakfast">Breakfast</option>
-                <option value="lunch">Lunch</option>
-                <option value="dinner">Dinner</option>
-                <option value="snacks">Snacks</option>
+                <option value="breakfast">🌅 Breakfast (มื้อเช้า)</option>
+                <option value="lunch">☀️ Lunch (มื้อเที่ยง)</option>
+                <option value="dinner">🌙 Dinner (มื้อเย็น)</option>
+                <option value="snacks">🍰 Snacks (ของว่าง/ขนม)</option>
               </select>
             </div>
           </div>

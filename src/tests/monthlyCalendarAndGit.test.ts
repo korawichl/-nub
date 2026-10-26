@@ -6,6 +6,9 @@ import {
   buildDateString,
   parseDateString,
   shiftDateString,
+  getMealCategoryByTime,
+  isSnackOrBeverageFood,
+  resolveSmartMealCategory,
 } from '../utils/date';
 import {
   aggregateMonthData,
@@ -183,5 +186,71 @@ describe('Git Exporter and Monthly Archive', () => {
     expect(parsed.summary.daysInMonth).toBe(31);
     expect(parsed.summary.loggedDaysCount).toBe(2);
     expect(parsed.days.length).toBe(31);
+  });
+});
+
+describe('Smart Time-Based & Snack Auto-Categorization', () => {
+  it('categorizes main meals by Bangkok time of day', () => {
+    // 08:30 Bangkok (+07:00) -> 01:30 UTC
+    const morning = new Date('2026-10-26T08:30:00+07:00');
+    expect(getMealCategoryByTime(morning)).toBe('breakfast');
+
+    // 12:45 Bangkok (+07:00)
+    const noon = new Date('2026-10-26T12:45:00+07:00');
+    expect(getMealCategoryByTime(noon)).toBe('lunch');
+
+    // 18:15 Bangkok (+07:00)
+    const evening = new Date('2026-10-26T18:15:00+07:00');
+    expect(getMealCategoryByTime(evening)).toBe('dinner');
+  });
+
+  it('accurately detects snacks, desserts, bakery items, and beverages', () => {
+    expect(isSnackOrBeverageFood('เค้กช็อกโกแลตหน้านิ่ม')).toBe(true);
+    expect(isSnackOrBeverageFood('ชานมไข่มุกหวานน้อย')).toBe(true);
+    expect(isSnackOrBeverageFood('ขนมครกใบเตย')).toBe(true);
+    expect(isSnackOrBeverageFood('บิงซูสตรอว์เบอร์รี่')).toBe(true);
+    expect(isSnackOrBeverageFood('ข้าวเหนียวมะม่วง')).toBe(true);
+    expect(isSnackOrBeverageFood('ครัวซองต์เนยสด')).toBe(true);
+
+    // Main meals should NOT be flagged as snacks
+    expect(isSnackOrBeverageFood('ข้าวมันไก่ต้ม')).toBe(false);
+    expect(isSnackOrBeverageFood('ข้าวกะเพราหมูสับไข่ดาว')).toBe(false);
+    expect(isSnackOrBeverageFood('ข้าวหน้าเนื้อกิวด้ง')).toBe(false);
+    expect(isSnackOrBeverageFood('ซูชิแซลมอน')).toBe(false);
+    expect(isSnackOrBeverageFood('ข้าวเหนียวหมูปิ้ง')).toBe(false);
+  });
+
+  it('resolves smart meal category: time-based for main meals, snacks for desserts, and respects manual override', () => {
+    const lunchTime = new Date('2026-10-26T12:30:00+07:00');
+
+    // Auto mode + main meal at 12:30 -> lunch
+    expect(
+      resolveSmartMealCategory({
+        isAutoMode: true,
+        manualCategory: 'breakfast',
+        foodName: 'ข้าวมันไก่ต้ม',
+        date: lunchTime,
+      })
+    ).toBe('lunch');
+
+    // Auto mode + snack at 12:30 -> overrides to 'snacks'
+    expect(
+      resolveSmartMealCategory({
+        isAutoMode: true,
+        manualCategory: 'lunch',
+        foodName: 'บราวนี่ช็อกโกแลต',
+        date: lunchTime,
+      })
+    ).toBe('snacks');
+
+    // Manual mode -> strictly respects user's manual selection even if it's a snack
+    expect(
+      resolveSmartMealCategory({
+        isAutoMode: false,
+        manualCategory: 'breakfast',
+        foodName: 'ครัวซองต์อัลมอนด์',
+        date: lunchTime,
+      })
+    ).toBe('breakfast');
   });
 });

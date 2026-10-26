@@ -167,6 +167,7 @@ export interface ConfirmMealDraft {
   sugarG?: number;
   barcode?: string;
   category: MealCategory;
+  autoCategorizedReason?: 'time' | 'snack_detected' | 'manual';
   source: FoodSourceType;
   uncertainties?: string[];
   assumptions?: string[];

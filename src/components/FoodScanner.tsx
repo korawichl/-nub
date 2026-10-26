@@ -12,7 +12,13 @@ import {
   type CompressedImageResult,
 } from '../services/aiProvider';
 import { db } from '../db/database';
-import { getBangkokDateString } from '../utils/date';
+import {
+  getBangkokDateString,
+  getBangkokTimeFormatted,
+  getMealCategoryByTime,
+  isSnackOrBeverageFood,
+  resolveSmartMealCategory,
+} from '../utils/date';
 import { calculateFoodNutrition, estimateRoughNutrition } from '../utils/nutritionCalculator';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 import {
@@ -27,6 +33,7 @@ import {
   Loader2,
   CheckCircle2,
   ScanBarcode,
+  Clock,
 } from 'lucide-react';
 
 interface FoodScannerProps {
@@ -60,7 +67,10 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [compressedInfo, setCompressedInfo] = useState<CompressedImageResult | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
-  const [mealCategory, setMealCategory] = useState<MealCategory>('lunch');
+  const [isAutoCategory, setIsAutoCategory] = useState<boolean>(true);
+  const [mealCategory, setMealCategory] = useState<MealCategory>(() =>
+    getMealCategoryByTime()
+  );
   const [scanState, setScanState] = useState<
     'idle' | 'loading' | 'success' | 'error'
   >('idle');
@@ -70,6 +80,44 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
   const [isEstimatingQuery, setIsEstimatingQuery] = useState(false);
   const [isBarcodeOpen, setIsBarcodeOpen] = useState(false);
   const [quickMealInput, setQuickMealInput] = useState('');
+
+  const timeBasedCategory = getMealCategoryByTime();
+  const currentTimeStr = getBangkokTimeFormatted();
+
+  const MEAL_LABELS: Record<MealCategory, string> = {
+    breakfast: '🌅 มื้อเช้า (Breakfast)',
+    lunch: '☀️ มื้อเที่ยง (Lunch)',
+    dinner: '🌙 มื้อเย็น (Dinner)',
+    snacks: '🍰 ของว่าง/ขนม (Snacks)',
+  };
+
+  const computeCategoryAndReason = (
+    foodName?: string,
+    ingredients?: string,
+    categoryHint?: string,
+    isAiSnack?: boolean
+  ): { category: MealCategory; reason: 'time' | 'snack_detected' | 'manual' } => {
+    if (!isAutoCategory) {
+      return { category: mealCategory, reason: 'manual' };
+    }
+    const resolved = resolveSmartMealCategory({
+      isAutoMode: true,
+      manualCategory: mealCategory,
+      foodName,
+      ingredients,
+      categoryHint,
+      isAiSnack,
+    });
+    const isSnackDetected = isSnackOrBeverageFood(
+      `${foodName || ''} ${ingredients || ''}`.trim(),
+      categoryHint,
+      isAiSnack
+    );
+    return {
+      category: resolved,
+      reason: isSnackDetected ? 'snack_detected' : 'time',
+    };
+  };
 
   const handleQuickLogFromPhoto = (mealName: string) => {
     const clean = (mealName || '').trim();
@@ -128,6 +176,12 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
       fat,
     });
 
+    const { category: targetCategory, reason } = computeCategoryAndReason(
+      clean,
+      clean,
+      catalogMatch?.category
+    );
+
     onOpenConfirmMeal({
       foodName: clean,
       ingredients: clean,
@@ -138,7 +192,8 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
       fat: rough.fat,
       sodiumMg: rough.sodiumMg,
       sugarG: rough.sugarG,
-      category: mealCategory,
+      category: targetCategory,
+      autoCategorizedReason: reason,
       source: 'user_estimated',
       requiresExplicitConfirmation: true,
     });
@@ -161,6 +216,11 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
 
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
+    }
+
+    // Refresh time-based category if user is in auto mode when taking a new photo
+    if (isAutoCategory) {
+      setMealCategory(getMealCategoryByTime());
     }
 
     const nextUrl = URL.createObjectURL(file);
@@ -222,6 +282,13 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
         .map((i) => `${i.name} (~${i.estimatedGrams}g)`)
         .join(', ');
 
+      const { category: targetCategory, reason } = computeCategoryAndReason(
+        result.mealName,
+        ingredientsText,
+        undefined,
+        result.isSnack
+      );
+
       onOpenConfirmMeal({
         foodName: result.mealName,
         ingredients: ingredientsText,
@@ -232,7 +299,8 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
         fat: result.fat,
         sodiumMg: result.sodiumMg,
         sugarG: result.sugarG,
-        category: mealCategory,
+        category: targetCategory,
+        autoCategorizedReason: reason,
         source: 'ai_confirmed',
         uncertainties: result.uncertainties,
         assumptions: result.assumptions,
@@ -296,6 +364,12 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
         ? Math.round(food.sugarGPer100g * ratio * 10) / 10
         : undefined;
 
+    const { category: targetCategory, reason } = computeCategoryAndReason(
+      food.name,
+      food.name,
+      food.category
+    );
+
     onOpenConfirmMeal({
       foodName: food.name,
       ingredients: food.name,
@@ -306,13 +380,15 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
       fat: portion.fat,
       sodiumMg: initialSodium,
       sugarG: initialSugar,
-      category: mealCategory,
+      category: targetCategory,
+      autoCategorizedReason: reason,
       source: food.source,
       requiresExplicitConfirmation: false,
     });
   };
 
   const handleManualBlankEntry = () => {
+    const { category: targetCategory, reason } = computeCategoryAndReason();
     onOpenConfirmMeal({
       foodName: '',
       ingredients: '',
@@ -321,7 +397,8 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
       protein: 0,
       carbohydrates: 0,
       fat: 0,
-      category: mealCategory,
+      category: targetCategory,
+      autoCategorizedReason: reason,
       source: 'user_estimated',
       requiresExplicitConfirmation: false,
     });
@@ -329,6 +406,7 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
 
   const handleManualCustomMealWithName = (name: string) => {
     const clean = name.trim();
+    const { category: targetCategory, reason } = computeCategoryAndReason(clean, clean);
     onOpenConfirmMeal({
       foodName: clean,
       ingredients: clean,
@@ -337,7 +415,8 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
       protein: 0,
       carbohydrates: 0,
       fat: 0,
-      category: mealCategory,
+      category: targetCategory,
+      autoCategorizedReason: reason,
       source: 'user_estimated',
       requiresExplicitConfirmation: false,
     });
@@ -355,11 +434,19 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
         result = await analyzeTextWithFreeZeroKeyAI(clean);
       }
 
+      const ingredientsStr =
+        result.identifiedFoodItems?.map((i) => `${i.name} (~${i.estimatedGrams}g)`).join(', ') ||
+        clean;
+      const { category: targetCategory, reason } = computeCategoryAndReason(
+        result.mealName || clean,
+        ingredientsStr,
+        undefined,
+        result.isSnack
+      );
+
       onOpenConfirmMeal({
         foodName: result.mealName || clean,
-        ingredients:
-          result.identifiedFoodItems?.map((i) => `${i.name} (~${i.estimatedGrams}g)`).join(', ') ||
-          clean,
+        ingredients: ingredientsStr,
         servingGrams: result.estimatedWeightGrams || 250,
         calories: result.estimatedCalories,
         protein: result.protein,
@@ -367,7 +454,8 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
         fat: result.fat,
         sodiumMg: result.sodiumMg,
         sugarG: result.sugarG,
-        category: mealCategory,
+        category: targetCategory,
+        autoCategorizedReason: reason,
         source: 'ai_confirmed',
         uncertainties: result.uncertainties,
         assumptions: result.assumptions,
@@ -500,21 +588,118 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
 
       {/* Camera & Gallery Selection Card */}
       <section className="card">
-        <div className="form-row-inline" style={{ marginBottom: '1rem' }}>
-          <label htmlFor="scanner-meal-category" className="field-label">
-            Target Meal Category:
-          </label>
-          <select
-            id="scanner-meal-category"
-            className="input-select"
-            value={mealCategory}
-            onChange={(e) => setMealCategory(e.target.value as MealCategory)}
-          >
-            <option value="breakfast">Breakfast (มื้อเช้า)</option>
-            <option value="lunch">Lunch (มื้อเที่ยง)</option>
-            <option value="dinner">Dinner (มื้อเย็น)</option>
-            <option value="snacks">Snacks (ของว่าง/เครื่องดื่ม)</option>
-          </select>
+        <div
+          style={{
+            marginBottom: '1rem',
+            padding: '0.85rem 1rem',
+            borderRadius: '16px',
+            backgroundColor: 'var(--color-bg-subtle, #F6F7FB)',
+            border: '1px solid var(--color-border, #E9EAF2)',
+          }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <label
+              htmlFor="scanner-meal-category"
+              className="field-label flex items-center gap-1.5 m-0"
+            >
+              <Clock size={16} className="text-[#6258F5]" />
+              <span>มื้ออาหาร (Meal Category):</span>
+            </label>
+
+            <select
+              id="scanner-meal-category"
+              className="input-select text-xs py-1.5 px-3"
+              style={{ maxWidth: '260px' }}
+              value={isAutoCategory ? 'auto' : mealCategory}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'auto') {
+                  setIsAutoCategory(true);
+                  setMealCategory(getMealCategoryByTime());
+                } else {
+                  setIsAutoCategory(false);
+                  setMealCategory(val as MealCategory);
+                }
+              }}
+            >
+              <option value="auto">
+                ✨ อัตโนมัติ (ตามเวลา + ขนมแยกเอง)
+              </option>
+              <option value="breakfast">🌅 มื้อเช้า (Breakfast)</option>
+              <option value="lunch">☀️ มื้อเที่ยง (Lunch)</option>
+              <option value="dinner">🌙 มื้อเย็น (Dinner)</option>
+              <option value="snacks">🍰 ของว่าง/ขนม (Snacks)</option>
+            </select>
+          </div>
+
+          {/* Quick 1-Tap Category Pills */}
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsAutoCategory(true);
+                setMealCategory(getMealCategoryByTime());
+              }}
+              className={`btn btn-sm ${
+                isAutoCategory ? 'btn-primary' : 'btn-secondary'
+              }`}
+              style={{
+                fontSize: '0.75rem',
+                padding: '0.3rem 0.7rem',
+                borderRadius: '999px',
+              }}
+            >
+              ✨ อัตโนมัติ (ตามเวลา/รูปภาพ)
+            </button>
+            {(['breakfast', 'lunch', 'dinner', 'snacks'] as MealCategory[]).map(
+              (cat) => {
+                const isSelectedManual = !isAutoCategory && mealCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => {
+                      setIsAutoCategory(false);
+                      setMealCategory(cat);
+                    }}
+                    className={`btn btn-sm ${
+                      isSelectedManual ? 'btn-primary' : 'btn-secondary'
+                    }`}
+                    style={{
+                      fontSize: '0.75rem',
+                      padding: '0.3rem 0.7rem',
+                      borderRadius: '999px',
+                    }}
+                  >
+                    {MEAL_LABELS[cat]}
+                  </button>
+                );
+              }
+            )}
+          </div>
+
+          {/* Helpful Status Banner */}
+          <div className="text-xs text-[#64748B] flex items-center gap-1.5 leading-relaxed">
+            {isAutoCategory ? (
+              <span>
+                🕒 <strong>โหมดอัตโนมัติทำงานอยู่:</strong> ตอนนี้เวลา{' '}
+                <strong>{currentTimeStr}</strong> ระบบตั้งค่าเริ่มต้นเป็น{' '}
+                <strong className="text-[#6258F5]">
+                  {MEAL_LABELS[timeBasedCategory]}
+                </strong>{' '}
+                • แต่ถ้าในรูปเป็น<strong>ขนม ของหวาน เบเกอรี่ หรือเครื่องดื่ม</strong>{' '}
+                ระบบจะแยกไปหมวด <strong>🍰 ของว่าง/ขนม</strong> ให้อัตโนมัติ!
+              </span>
+            ) : (
+              <span>
+                📌 <strong>เลือกมื้อเอง:</strong> กำหนดเป็น{' '}
+                <strong className="text-[#6258F5]">
+                  {MEAL_LABELS[mealCategory]}
+                </strong>{' '}
+                (กดปุ่ม <em>"✨ อัตโนมัติ"</em> ด้านบนหากต้องการให้ระบบเลือกตามเวลาและรูปภาพ)
+              </span>
+            )}
+          </div>
         </div>
 
         <input
@@ -932,8 +1117,18 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
       <BarcodeScannerModal
         isOpen={isBarcodeOpen}
         onClose={() => setIsBarcodeOpen(false)}
-        onProductFound={onOpenConfirmMeal}
-        defaultCategory={mealCategory}
+        onProductFound={(draft) => {
+          const { category: targetCat, reason } = computeCategoryAndReason(
+            draft.foodName,
+            draft.ingredients
+          );
+          onOpenConfirmMeal({
+            ...draft,
+            category: targetCat,
+            autoCategorizedReason: reason,
+          });
+        }}
+        defaultCategory={isAutoCategory ? timeBasedCategory : mealCategory}
         settings={settings}
       />
     </div>
