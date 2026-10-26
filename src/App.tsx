@@ -305,11 +305,11 @@ export const App: React.FC = () => {
             <div className="pt-6 border-t border-[#E9EAF2] flex items-center gap-3">
               <div className="relative shrink-0">
                 <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+                  src="/user-avatar.webp"
                   alt="User Avatar"
-                  className="w-10 h-10 rounded-full object-cover ring-2 ring-[#EFEDFF]"
+                  className="w-10 h-10 rounded-full object-cover ring-2 ring-[#6258F5]/30 shadow-xs"
                 />
-                <span className="absolute -top-1 -right-1 bg-[#6258F5] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ring-2 ring-white flex items-center gap-0.5">
+                <span className="absolute -top-1 -right-1 bg-[#6258F5] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ring-2 ring-white flex items-center gap-0.5 shadow-2xs">
                   🔥 {realStreak}
                 </span>
               </div>
@@ -338,6 +338,33 @@ export const App: React.FC = () => {
               >
                 <Menu className="w-5 h-5" />
               </button>
+
+              {/* Mobile User Profile Avatar Header */}
+              <div
+                className="flex items-center gap-2 sm:hidden cursor-pointer"
+                onClick={() => setActiveTab('settings')}
+                title="ดูข้อมูลโปรไฟล์และเป้าหมาย"
+              >
+                <div className="relative shrink-0">
+                  <img
+                    src="/user-avatar.webp"
+                    alt="User Avatar"
+                    className="w-8 h-8 rounded-full object-cover ring-2 ring-[#6258F5]/40 shadow-xs"
+                  />
+                  <span className="absolute -bottom-1 -right-1 bg-[#6258F5] text-white text-[8px] font-extrabold px-1 py-0.2 rounded-full ring-1 ring-white">
+                    🔥{realStreak}
+                  </span>
+                </div>
+                <div className="flex flex-col leading-tight">
+                  <span className="text-xs font-bold text-[#20243A] truncate max-w-[110px]">
+                    {profile.name || 'Korawich'}
+                  </span>
+                  <span className="text-[10px] text-[#858BA0] font-medium">
+                    {goals.calorieTarget} kcal
+                  </span>
+                </div>
+              </div>
+
               <div className="hidden sm:flex items-center gap-2">
                 <span className="text-sm font-bold text-[#20243A]">
                   {activeTab === 'dashboard'

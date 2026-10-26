@@ -414,7 +414,7 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
           <div className="form-grid-2">
             <div className="form-field">
               <label htmlFor="confirm-sodium" className="field-label">
-                Sodium (mg) <span className="text-[11px] text-[#6258F5] font-normal">(คำนวณคร่าวๆ / แก้ไขได้)</span>
+                Sodium (mg)
               </label>
               <input
                 id="confirm-sodium"
@@ -430,7 +430,7 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
 
             <div className="form-field">
               <label htmlFor="confirm-sugar" className="field-label">
-                Sugar (g) <span className="text-[11px] text-[#6258F5] font-normal">(คำนวณคร่าวๆ / แก้ไขได้)</span>
+                Sugar (g)
               </label>
               <input
                 id="confirm-sugar"

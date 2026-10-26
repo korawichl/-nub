@@ -274,7 +274,7 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
             }`}
           >
             <BookOpen size={14} />
-            <span>📖 บันทึกรายวัน (Daily View)</span>
+            <span>บันทึกรายวัน (Daily View)</span>
           </button>
           <button
             type="button"
@@ -286,7 +286,7 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
             }`}
           >
             <Calendar size={14} />
-            <span>📅 ปฏิทินย้อนหลัง & บันทึก Git</span>
+            <span>ปฏิทินย้อนหลัง & Git Archive</span>
           </button>
         </div>
 

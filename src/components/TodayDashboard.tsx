@@ -46,14 +46,12 @@ import {
   Dumbbell,
   Droplets,
   Flame,
-  ArrowUpRight,
   Search,
   ChevronDown,
   Download,
   MoreHorizontal,
   MinusCircle,
   Check,
-  Wheat,
   Sparkles,
   BookOpen,
   Mic,
@@ -63,6 +61,7 @@ import {
   AlertTriangle,
   Loader2,
   Calendar,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface TodayDashboardProps {
@@ -410,38 +409,64 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
   return (
     <div className="flex flex-col gap-6">
       {/* =========================================================================
-          0. TOP UTILITY BAR: STREAK BADGE & QUICK ACCESS MODAL BUTTONS
+          0. TOP UTILITY BAR: USER PROFILE, STREAK BADGE & QUICK ACCESS MODAL BUTTONS
          ========================================================================= */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-[#E9EAF2] rounded-[22px] p-4 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-[#E9EAF2] rounded-[24px] p-3.5 sm:p-4 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-[#EFEDFF] text-[#6258F5] px-3.5 py-1.5 rounded-full text-xs font-bold border border-[#6258F5]/20">
-            <Flame className="w-4 h-4 fill-[#6258F5]" />
-            <span>{streakDays} Day Logging Streak</span>
+          <div className="relative shrink-0">
+            <img
+              src="/user-avatar.webp"
+              alt="User"
+              className="w-11 h-11 rounded-full object-cover ring-2 ring-[#6258F5]/40 shadow-xs"
+            />
+            <span className="absolute -bottom-1 -right-1 bg-[#6258F5] text-white text-[9px] font-extrabold px-1.5 py-0.2 rounded-full ring-2 ring-white">
+              🔥{streakDays}
+            </span>
           </div>
-          <span className="text-xs text-[#858BA0] hidden md:inline">
-            Keep recording daily to sustain healthy habits!
-          </span>
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-[#20243A] truncate">
+                สวัสดี {profile.name || 'Korawich'} 👋
+              </span>
+              <span className="text-[10px] font-semibold text-[#6258F5] bg-[#EFEDFF] px-2 py-0.5 rounded-full hidden xs:inline">
+                {streakDays} Days Streak
+              </span>
+            </div>
+            <span className="text-xs text-[#858BA0]">
+              {formatDisplayDate(todayBangkok)} • บันทึกแล้ว {todayItems.length} รายการ
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           {/* Barcode Scanner Modal Trigger */}
           <button
             type="button"
             onClick={() => setIsBarcodeModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#6258F5] bg-[#F0F4FF] hover:bg-[#EFEDFF] rounded-full border border-[#6258F5]/20 transition-all hover:scale-[1.02] shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#6258F5] bg-[#F0F4FF] hover:bg-[#EFEDFF] rounded-full border border-[#6258F5]/20 transition-all hover:scale-[1.02] shadow-2xs"
           >
-            <ScanBarcode className="w-4 h-4 stroke-[2.2]" />
-            <span>Scan Barcode</span>
+            <ScanBarcode className="w-3.5 h-3.5 stroke-[2.2]" />
+            <span>Barcode</span>
           </button>
 
           {/* Share Daily Summary Card Modal Trigger */}
           <button
             type="button"
             onClick={() => setIsShareModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-[#6258F5] hover:bg-[#756BFF] rounded-full transition-all hover:scale-[1.02] shadow-sm shadow-[#6258F5]/25"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#20243A] bg-[#F6F7FB] hover:bg-[#E9EAF2] rounded-full border border-[#E9EAF2] transition-all hover:scale-[1.02]"
           >
-            <Share2 className="w-4 h-4" />
-            <span>Share Report</span>
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Share</span>
+          </button>
+
+          {/* Calendar & Git History */}
+          <button
+            type="button"
+            onClick={() => onNavigateToDiary()}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-[#6258F5] hover:bg-[#756BFF] rounded-full transition-all hover:scale-[1.02] shadow-sm shadow-[#6258F5]/25"
+          >
+            <Calendar className="w-3.5 h-3.5 text-white" />
+            <span>ปฏิทิน & Git</span>
           </button>
         </div>
       </div>
@@ -557,267 +582,283 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
       {/* =========================================================================
           1. TOP SECTION: QUICK STATS (6 ROUNDED PILL CARDS IN A ROW)
          ========================================================================= */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-bold text-[#20243A] tracking-tight">Quick Stats</h2>
-            <p className="text-xs text-[#858BA0] mt-0.5">
-              Your nutrition & calorie budget for {formatDisplayDate(todayBangkok)}
-            </p>
+      {/* =========================================================================
+          1. UNIFIED BENTO HERO: ENERGY & MACRO PROTAGONIST HUB
+         ========================================================================= */}
+      <div className="bg-white border border-[#E9EAF2] rounded-[28px] p-5 sm:p-6 shadow-xs flex flex-col gap-5">
+        {/* Top Header of Bento */}
+        <div className="flex items-center justify-between border-b border-[#E9EAF2] pb-3.5">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#6258F5] animate-pulse"></span>
+            <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#20243A]">
+              Daily Energy & Nutrition Hub
+            </h2>
           </div>
-          <button
-            type="button"
-            onClick={() => onNavigateToDiary()}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] rounded-2xl transition-all cursor-pointer shadow-xs shrink-0"
-            title="ดูปฏิทินประวัติอาหารย้อนหลัง & ส่งออก Git"
-          >
-            <Calendar className="w-4 h-4 text-[#6258F5]" />
-            <span>📅 ปฏิทินประวัติ & Git</span>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3.5">
-          {/* Card 1: Remaining Calories */}
-          <div className="relative flex flex-col items-center justify-between p-3 sm:p-4 bg-white border border-[#E9EAF2] rounded-[18px] sm:rounded-[22px] min-h-[118px] sm:min-h-[148px] shadow-xs hover:border-[#756BFF]/40 transition-all text-center group">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#FEF7E8] text-[#F2B544] flex items-center justify-center transition-transform group-hover:scale-105">
-              <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-[#F2B544] stroke-[2.2]" />
-            </div>
-            <div className="flex flex-col items-center mt-1.5 sm:mt-2">
-              <span className="text-lg sm:text-xl font-bold tracking-tight text-[#20243A]">
-                {Math.round(summary.remainingCalories).toLocaleString()}
-              </span>
-              <span className="text-[10px] sm:text-[11px] font-medium text-[#858BA0] mt-0.5 leading-tight">
-                Remaining kcal
-              </span>
-            </div>
-            <div className="text-[9px] sm:text-[10px] text-[#858BA0] font-medium">Budget Balance</div>
-          </div>
-
-          {/* Card 2: Consumed Calories */}
-          <div className="relative flex flex-col items-center justify-between p-3 sm:p-4 bg-white border border-[#E9EAF2] rounded-[18px] sm:rounded-[22px] min-h-[118px] sm:min-h-[148px] shadow-xs hover:border-[#756BFF]/40 transition-all text-center group">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#EFEDFF] text-[#6258F5] flex items-center justify-center transition-transform group-hover:scale-105">
-              <Utensils className="w-4 h-4 sm:w-5 sm:h-5 text-[#6258F5] stroke-[2.2]" />
-            </div>
-            <div className="flex flex-col items-center mt-1.5 sm:mt-2">
-              <span className="text-lg sm:text-xl font-bold tracking-tight text-[#20243A]">
-                {Math.round(summary.consumedCalories).toLocaleString()}
-              </span>
-              <span className="text-[10px] sm:text-[11px] font-medium text-[#858BA0] mt-0.5 leading-tight">
-                Consumed kcal
-              </span>
-            </div>
-            <div className="text-[9px] sm:text-[10px] text-[#858BA0] font-medium">
-              {Math.round((summary.consumedCalories / goals.calorieTarget) * 100)}% of goal
-            </div>
-          </div>
-
-          {/* Card 3: Calorie Target / Active Burn (Highlighted Primary Purple Icon with Arrow) */}
-          <div className="relative flex flex-col items-center justify-between p-3 sm:p-4 bg-white border border-[#E9EAF2] rounded-[18px] sm:rounded-[22px] min-h-[118px] sm:min-h-[148px] shadow-xs hover:border-[#756BFF]/40 transition-all text-center group">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#6258F5] text-white flex items-center justify-center shadow-sm shadow-[#6258F5]/25 transition-transform group-hover:scale-105">
-              <Scale className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
-            </div>
-            <div className="flex flex-col items-center mt-1.5 sm:mt-2">
-              <span className="text-lg sm:text-xl font-bold tracking-tight text-[#20243A]">
-                {goals.calorieTarget.toLocaleString()}
-              </span>
-              <span className="text-[10px] sm:text-[11px] font-medium text-[#858BA0] mt-0.5 leading-tight">
-                Daily Target kcal
-              </span>
-            </div>
-            <div className="mt-0.5">
-              <ArrowUpRight className="w-3.5 h-3.5 text-[#858BA0] group-hover:text-[#6258F5] transition-colors" />
-            </div>
-          </div>
-
-          {/* Card 4: Protein */}
-          <div className="relative flex flex-col items-center justify-between p-3 sm:p-4 bg-white border border-[#E9EAF2] rounded-[18px] sm:rounded-[22px] min-h-[118px] sm:min-h-[148px] shadow-xs hover:border-[#756BFF]/40 transition-all text-center group">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#F0F4FF] text-[#6258F5] flex items-center justify-center transition-transform group-hover:scale-105">
-              <Dumbbell className="w-4 h-4 sm:w-5 sm:h-5 text-[#6258F5] stroke-[2.2]" />
-            </div>
-            <div className="flex flex-col items-center mt-1.5 sm:mt-2">
-              <span className="text-lg sm:text-xl font-bold tracking-tight text-[#20243A]">
-                {Math.round(summary.consumedProtein)}g
-              </span>
-              <span className="text-[10px] sm:text-[11px] font-medium text-[#858BA0] mt-0.5 leading-tight">
-                Protein / {goals.proteinTargetG}g
-              </span>
-            </div>
-            <div className="text-[9px] sm:text-[10px] text-[#858BA0] font-medium">Muscle Builder</div>
-          </div>
-
-          {/* Card 5: Carbs & Fat */}
-          <div className="relative flex flex-col items-center justify-between p-3 sm:p-4 bg-white border border-[#E9EAF2] rounded-[18px] sm:rounded-[22px] min-h-[118px] sm:min-h-[148px] shadow-xs hover:border-[#756BFF]/40 transition-all text-center group">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#E8F8F2] text-[#27AE82] flex items-center justify-center transition-transform group-hover:scale-105">
-              <Wheat className="w-4 h-4 sm:w-5 sm:h-5 text-[#27AE82] stroke-[2.2]" />
-            </div>
-            <div className="flex flex-col items-center mt-1.5 sm:mt-2">
-              <span className="text-lg sm:text-xl font-bold tracking-tight text-[#20243A]">
-                {Math.round(summary.consumedCarbs)}g / {Math.round(summary.consumedFat)}g
-              </span>
-              <span className="text-[10px] sm:text-[11px] font-medium text-[#858BA0] mt-0.5 leading-tight">
-                Carbs & Fat
-              </span>
-            </div>
-            <div className="text-[9px] sm:text-[10px] text-[#858BA0] font-medium">Daily Energy</div>
-          </div>
-
-          {/* Card 6: Water Intake */}
-          <div className="relative flex flex-col items-center justify-between p-3 sm:p-4 bg-white border border-[#E9EAF2] rounded-[18px] sm:rounded-[22px] min-h-[118px] sm:min-h-[148px] shadow-xs hover:border-[#756BFF]/40 transition-all text-center group">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#F0F4FF] text-[#756BFF] flex items-center justify-center transition-transform group-hover:scale-105">
-              <Droplets className="w-4 h-4 sm:w-5 sm:h-5 text-[#756BFF] stroke-[2.2]" />
-            </div>
-            <div className="flex flex-col items-center mt-1.5 sm:mt-2">
-              <span className="text-lg sm:text-xl font-bold tracking-tight text-[#20243A]">
-                {(consumedWaterMl / 1000).toFixed(1)}L
-              </span>
-              <span className="text-[10px] sm:text-[11px] font-medium text-[#858BA0] mt-0.5 leading-tight">
-                Water / {(waterTargetMl / 1000).toFixed(1)}L
-              </span>
-            </div>
-            <div className="text-[9px] sm:text-[10px] text-[#858BA0] font-medium">Hydration</div>
-          </div>
-        </div>
-
-        {/* 1.5 NUTRITION HEALTH & ENERGY BALANCE (DEFICIT, SODIUM, SUGAR) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mt-1">
-          {/* Deficit / Surplus Card */}
-          <div className="p-4 bg-white border border-[#E9EAF2] rounded-[22px] shadow-xs flex flex-col justify-between gap-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#20243A] flex items-center gap-1.5">
-                <Flame className="w-4 h-4 text-[#6258F5]" />
-                <span>Net Calorie Deficit / Surplus</span>
-              </span>
-              <span
-                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                  energyBalance.status === 'deficit'
-                    ? 'bg-[#E8F8F2] text-[#27AE82]'
-                    : energyBalance.status === 'surplus'
-                    ? 'bg-[#FEF7E8] text-[#D9961A]'
-                    : 'bg-[#EFEDFF] text-[#6258F5]'
-                }`}
-              >
-                {energyBalance.status === 'deficit'
-                  ? 'Deficit Mode'
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
+                energyBalance.status === 'deficit'
+                  ? 'bg-[#E8F8F2] text-[#27AE82]'
                   : energyBalance.status === 'surplus'
-                  ? 'Surplus Mode'
+                  ? 'bg-[#FEF7E8] text-[#D9961A]'
+                  : 'bg-[#EFEDFF] text-[#6258F5]'
+              }`}
+            >
+              <Flame className="w-3.5 h-3.5" />
+              <span>
+                {energyBalance.status === 'deficit'
+                  ? `Deficit ~${energyBalance.estimatedFatChangeGrams}g burn`
+                  : energyBalance.status === 'surplus'
+                  ? `Surplus +${energyBalance.estimatedFatChangeGrams}g`
                   : 'Balanced'}
               </span>
-            </div>
+            </span>
+          </div>
+        </div>
 
-            <div className="flex items-baseline justify-between">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-xl font-extrabold text-[#20243A]">
-                  {energyBalance.netDeficit > 0 ? '-' : '+'}
-                  {Math.round(Math.abs(energyBalance.netDeficit))}
+        {/* Center Grid: Hero Calorie Gauge (Left) + 3 Macro Pillars (Right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          {/* Left Hero: Circular Calorie Gauge (7 cols) */}
+          <div className="lg:col-span-6 xl:col-span-7 flex flex-col sm:flex-row items-center justify-center gap-6 py-2">
+            {/* SVG Circular Progress Gauge */}
+            <div className="relative w-36 h-36 sm:w-40 sm:h-40 flex items-center justify-center shrink-0">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+                {/* Background Ring */}
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="50"
+                  className="stroke-[#F0F2F8]"
+                  strokeWidth="10"
+                  fill="none"
+                />
+                {/* Active Consumed Ring */}
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="50"
+                  stroke={
+                    summary.consumedCalories > goals.calorieTarget
+                      ? '#EB6478'
+                      : '#6258F5'
+                  }
+                  strokeWidth="10"
+                  strokeDasharray={314.16}
+                  strokeDashoffset={
+                    314.16 *
+                    (1 -
+                      Math.min(
+                        1,
+                        summary.consumedCalories / (goals.calorieTarget || 1)
+                      ))
+                  }
+                  strokeLinecap="round"
+                  fill="none"
+                  className="transition-all duration-700 ease-out"
+                />
+              </svg>
+
+              {/* Inside the Gauge */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#858BA0]">
+                  Remaining
                 </span>
-                <span className="text-xs text-[#858BA0] font-medium">kcal balance</span>
+                <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#20243A] tabular-nums leading-tight">
+                  {Math.round(summary.remainingCalories).toLocaleString()}
+                </span>
+                <span className="text-[11px] font-semibold text-[#6258F5]">
+                  kcal
+                </span>
               </div>
-              <span className="text-xs font-semibold text-[#6258F5]">
-                {energyBalance.status === 'deficit'
-                  ? `🔥 ~${energyBalance.estimatedFatChangeGrams}g fat burn`
-                  : energyBalance.status === 'surplus'
-                  ? `~${energyBalance.estimatedFatChangeGrams}g energy reserve`
-                  : 'Maintenance'}
-              </span>
             </div>
 
-            <div className="text-[11px] text-[#858BA0] flex items-center justify-between pt-1.5 border-t border-[#E9EAF2]">
-              <span>TDEE: {energyBalance.tdee} + Workouts: {energyBalance.workoutBurn} kcal</span>
-              <span className="font-semibold text-[#20243A]">
-                Total: {energyBalance.totalExpenditure} kcal
-              </span>
+            {/* Calorie Stats Breakdown next to Gauge */}
+            <div className="flex flex-col gap-2.5 w-full max-w-[240px]">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F6F7FB] border border-[#E9EAF2]">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-[#EFEDFF] text-[#6258F5] flex items-center justify-center shrink-0">
+                    <Utensils className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-xs font-semibold text-[#858BA0]">ทานแล้ว</span>
+                </div>
+                <span className="text-xs font-bold text-[#20243A] tabular-nums">
+                  {Math.round(summary.consumedCalories).toLocaleString()} kcal
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F6F7FB] border border-[#E9EAF2]">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-[#6258F5] text-white flex items-center justify-center shrink-0">
+                    <Scale className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-xs font-semibold text-[#858BA0]">เป้าหมาย</span>
+                </div>
+                <span className="text-xs font-bold text-[#20243A] tabular-nums">
+                  {goals.calorieTarget.toLocaleString()} kcal
+                </span>
+              </div>
+
+              <div className="text-[11px] text-[#858BA0] flex items-center justify-between px-1">
+                <span>ความคืบหน้า</span>
+                <span className="font-bold text-[#6258F5] tabular-nums">
+                  {Math.round((summary.consumedCalories / (goals.calorieTarget || 1)) * 100)}%
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Sodium Monitor Card */}
-          <div className="p-4 bg-white border border-[#E9EAF2] rounded-[22px] shadow-xs flex flex-col justify-between gap-2.5">
+          {/* Right Hero: The 3 Clean Macro Pillars (Protein, Carbs, Fat) (5 cols) */}
+          <div className="lg:col-span-6 xl:col-span-5 flex flex-col gap-3.5 border-t lg:border-t-0 lg:border-l border-[#E9EAF2] pt-4 lg:pt-0 lg:pl-6">
+            <span className="text-xs font-bold text-[#858BA0] uppercase tracking-wider">
+              Macronutrient Target
+            </span>
+
+            {/* Protein */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-[#20243A] flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#6258F5]"></span>
+                  <span>Protein (โปรตีน)</span>
+                </span>
+                <span className="font-bold text-[#20243A] tabular-nums">
+                  {Math.round(summary.consumedProtein)}g{' '}
+                  <span className="text-[#858BA0] font-normal">/ {goals.proteinTargetG}g</span>
+                </span>
+              </div>
+              <div className="w-full bg-[#F0F2F8] h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-[#6258F5] h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, Math.round((summary.consumedProtein / (goals.proteinTargetG || 1)) * 100))}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Carbohydrates */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-[#20243A] flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>
+                  <span>Carbs (คาร์โบไฮเดรต)</span>
+                </span>
+                <span className="font-bold text-[#20243A] tabular-nums">
+                  {Math.round(summary.consumedCarbs)}g{' '}
+                  <span className="text-[#858BA0] font-normal">/ {goals.carbsTargetG}g</span>
+                </span>
+              </div>
+              <div className="w-full bg-[#F0F2F8] h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-[#10B981] h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, Math.round((summary.consumedCarbs / (goals.carbsTargetG || 1)) * 100))}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Fat */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-[#20243A] flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></span>
+                  <span>Fat (ไขมัน)</span>
+                </span>
+                <span className="font-bold text-[#20243A] tabular-nums">
+                  {Math.round(summary.consumedFat)}g{' '}
+                  <span className="text-[#858BA0] font-normal">/ {goals.fatTargetG}g</span>
+                </span>
+              </div>
+              <div className="w-full bg-[#F0F2F8] h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-[#F59E0B] h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, Math.round((summary.consumedFat / (goals.fatTargetG || 1)) * 100))}%`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Row: 3 Quiet Health Micro-Stats (Water, Sodium, Sugar) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 border-t border-[#E9EAF2]">
+          {/* Water Hydration */}
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#F6F7FB] border border-[#E9EAF2]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#EFF6FF] text-[#3B82F6] flex items-center justify-center shrink-0">
+                <Droplets className="w-4 h-4 stroke-[2.2]" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-[#20243A] tabular-nums">
+                  {(consumedWaterMl / 1000).toFixed(1)}L / {(waterTargetMl / 1000).toFixed(1)}L
+                </span>
+                <span className="text-[10px] text-[#858BA0]">น้ำดื่มวันนี้</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => handleQuickWater(250)}
+                className="text-[10px] font-bold text-[#3B82F6] bg-white hover:bg-[#EFF6FF] px-2 py-1 rounded-lg border border-[#E9EAF2] transition-colors"
+                title="ดื่มน้ำแก้วเล็ก +250ml"
+              >
+                +250ml
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickWater(500)}
+                className="text-[10px] font-bold text-[#3B82F6] bg-white hover:bg-[#EFF6FF] px-2 py-1 rounded-lg border border-[#E9EAF2] transition-colors"
+                title="ดื่มน้ำขวด +500ml"
+              >
+                +500ml
+              </button>
+            </div>
+          </div>
+
+          {/* Sodium */}
+          <div className="flex flex-col justify-between p-3 rounded-2xl bg-[#F6F7FB] border border-[#E9EAF2] gap-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#20243A] flex items-center gap-1.5">
-                <span>🧂</span>
-                <span>Sodium (โซเดียม)</span>
-              </span>
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#6258F5]" />
+                <span className="text-xs font-bold text-[#20243A]">Sodium (โซเดียม)</span>
+              </div>
               <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                className={`text-[10px] font-bold px-2 py-0.2 rounded-full ${
                   summary.consumedSodiumMg > 2000
-                    ? 'bg-[#FFF0F2] text-[#EB6478] border border-[#EB6478]/30'
+                    ? 'bg-[#FFF0F2] text-[#EB6478]'
                     : 'bg-[#E8F8F2] text-[#27AE82]'
                 }`}
               >
-                {summary.consumedSodiumMg > 2000 ? '⚠️ เกินเกณฑ์ WHO' : '✅ ปกติ'}
+                {summary.consumedSodiumMg > 2000 ? 'เกินเกณฑ์ WHO' : 'ปกติ'}
               </span>
             </div>
-
-            <div className="flex items-baseline justify-between">
-              <div className="flex items-baseline gap-1">
-                <span className="text-xl font-extrabold text-[#20243A]">
-                  {summary.consumedSodiumMg.toLocaleString()}
-                </span>
-                <span className="text-xs text-[#858BA0] font-medium">/ 2,000 mg</span>
-              </div>
-              <span
-                className={`text-xs font-bold ${
-                  summary.consumedSodiumMg > 2000 ? 'text-[#EB6478]' : 'text-[#27AE82]'
-                }`}
-              >
-                {Math.round((summary.consumedSodiumMg / 2000) * 100)}%
-              </span>
-            </div>
-
-            <div className="w-full bg-[#F0F4FF] h-1.5 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  summary.consumedSodiumMg > 2000 ? 'bg-[#EB6478]' : 'bg-[#6258F5]'
-                }`}
-                style={{
-                  width: `${Math.min(100, Math.round((summary.consumedSodiumMg / 2000) * 100))}%`,
-                }}
-              />
+            <div className="flex items-center justify-between text-xs tabular-nums font-semibold text-[#20243A]">
+              <span>{summary.consumedSodiumMg.toLocaleString()} mg</span>
+              <span className="text-[10px] text-[#858BA0] font-normal">เกณฑ์: 2,000 mg</span>
             </div>
           </div>
 
-          {/* Sugar Monitor Card */}
-          <div className="p-4 bg-white border border-[#E9EAF2] rounded-[22px] shadow-xs flex flex-col justify-between gap-2.5">
+          {/* Sugar */}
+          <div className="flex flex-col justify-between p-3 rounded-2xl bg-[#F6F7FB] border border-[#E9EAF2] gap-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#20243A] flex items-center gap-1.5">
-                <span>🍬</span>
-                <span>Sugar (น้ำตาล)</span>
-              </span>
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#F59E0B]" />
+                <span className="text-xs font-bold text-[#20243A]">Sugar (น้ำตาล)</span>
+              </div>
               <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                className={`text-[10px] font-bold px-2 py-0.2 rounded-full ${
                   summary.consumedSugarG > 24
-                    ? 'bg-[#FFF0F2] text-[#EB6478] border border-[#EB6478]/30'
+                    ? 'bg-[#FFF0F2] text-[#EB6478]'
                     : 'bg-[#E8F8F2] text-[#27AE82]'
                 }`}
               >
-                {summary.consumedSugarG > 24 ? '⚠️ เกินเกณฑ์ 6 ช้อนชา' : '✅ ปกติ'}
+                {summary.consumedSugarG > 24 ? 'เกิน 6 ช้อนชา' : 'ปกติ'}
               </span>
             </div>
-
-            <div className="flex items-baseline justify-between">
-              <div className="flex items-baseline gap-1">
-                <span className="text-xl font-extrabold text-[#20243A]">
-                  {summary.consumedSugarG}
-                </span>
-                <span className="text-xs text-[#858BA0] font-medium">/ 24 g (WHO)</span>
-              </div>
-              <span
-                className={`text-xs font-bold ${
-                  summary.consumedSugarG > 24 ? 'text-[#EB6478]' : 'text-[#27AE82]'
-                }`}
-              >
-                {Math.round((summary.consumedSugarG / 24) * 100)}%
-              </span>
-            </div>
-
-            <div className="w-full bg-[#F0F4FF] h-1.5 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  summary.consumedSugarG > 24 ? 'bg-[#EB6478]' : 'bg-[#27AE82]'
-                }`}
-                style={{
-                  width: `${Math.min(100, Math.round((summary.consumedSugarG / 24) * 100))}%`,
-                }}
-              />
+            <div className="flex items-center justify-between text-xs tabular-nums font-semibold text-[#20243A]">
+              <span>{summary.consumedSugarG} g</span>
+              <span className="text-[10px] text-[#858BA0] font-normal">เกณฑ์: 24 g</span>
             </div>
           </div>
         </div>
