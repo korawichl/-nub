@@ -34,6 +34,7 @@ import {
   CheckCircle2,
   ScanBarcode,
   Clock,
+  ChevronDown,
 } from 'lucide-react';
 
 interface FoodScannerProps {
@@ -84,11 +85,11 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
   const timeBasedCategory = getMealCategoryByTime();
   const currentTimeStr = getBangkokTimeFormatted();
 
-  const MEAL_LABELS: Record<MealCategory, string> = {
-    breakfast: '🌅 มื้อเช้า (Breakfast)',
-    lunch: '☀️ มื้อเที่ยง (Lunch)',
-    dinner: '🌙 มื้อเย็น (Dinner)',
-    snacks: '🍰 ของว่าง/ขนม (Snacks)',
+  const MEAL_SHORT_LABELS: Record<MealCategory, string> = {
+    breakfast: '🌅 มื้อเช้า',
+    lunch: '☀️ มื้อเที่ยง',
+    dinner: '🌙 มื้อเย็น',
+    snacks: '🍰 ของว่าง/ขนม',
   };
 
   const computeCategoryAndReason = (
@@ -588,28 +589,69 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
 
       {/* Camera & Gallery Selection Card */}
       <section className="card">
+        {/* Sleek & Minimal Unified Meal Selector Strip */}
         <div
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-2.5 rounded-2xl mb-4 transition-all"
           style={{
-            marginBottom: '1rem',
-            padding: '0.85rem 1rem',
-            borderRadius: '16px',
             backgroundColor: 'var(--color-bg-subtle, #F6F7FB)',
             border: '1px solid var(--color-border, #E9EAF2)',
           }}
         >
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <label
-              htmlFor="scanner-meal-category"
-              className="field-label flex items-center gap-1.5 m-0"
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+              style={{
+                backgroundColor: isAutoCategory
+                  ? 'rgba(98, 88, 245, 0.12)'
+                  : 'rgba(5, 150, 105, 0.12)',
+              }}
             >
-              <Clock size={16} className="text-[#6258F5]" />
-              <span>มื้ออาหาร (Meal Category):</span>
-            </label>
+              {isAutoCategory ? (
+                <Sparkles size={16} className="text-[#6258F5]" />
+              ) : (
+                <Clock size={16} className="text-[#059669]" />
+              )}
+            </div>
 
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-[#20243A] dark:text-[#F8FAFC]">
+                  {isAutoCategory
+                    ? `✨ อัตโนมัติ: ${MEAL_SHORT_LABELS[timeBasedCategory]}`
+                    : `📌 ล็อกมื้อ: ${MEAL_SHORT_LABELS[mealCategory]}`}
+                </span>
+                <span
+                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                  style={{
+                    backgroundColor: isAutoCategory
+                      ? 'rgba(98, 88, 245, 0.1)'
+                      : 'rgba(5, 150, 105, 0.1)',
+                    color: isAutoCategory ? '#6258F5' : '#059669',
+                  }}
+                >
+                  {isAutoCategory ? `${currentTimeStr} • แยกขนมจากรูปเอง` : 'เลือกเอง'}
+                </span>
+              </div>
+              <span className="text-[11px] text-[#858BA0] truncate">
+                {isAutoCategory
+                  ? 'ถ้าถ่ายรูปขนม/เครื่องดื่ม ระบบจะจัดเข้าของว่างให้อัตโนมัติ'
+                  : 'กดเลือก "✨ อัตโนมัติ" ในเมนูด้านขวาเพื่อกลับไปตามเวลา'}
+              </span>
+            </div>
+          </div>
+
+          {/* Minimal Dropdown Pill with Chevron */}
+          <div className="relative shrink-0 self-end sm:self-auto">
             <select
               id="scanner-meal-category"
-              className="input-select text-xs py-1.5 px-3"
-              style={{ maxWidth: '260px' }}
+              className="text-xs font-semibold py-1.5 pl-3 pr-8 rounded-xl cursor-pointer shadow-2xs transition-all appearance-none"
+              style={{
+                backgroundColor: 'var(--color-card-bg, #FFFFFF)',
+                borderColor: 'var(--color-border, #DCE0F5)',
+                color: 'var(--color-text, #20243A)',
+                borderWidth: '1px',
+                borderStyle: 'solid',
+              }}
               value={isAutoCategory ? 'auto' : mealCategory}
               onChange={(e) => {
                 const val = e.target.value;
@@ -621,84 +663,18 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
                   setMealCategory(val as MealCategory);
                 }
               }}
+              title="เลือกมื้ออาหาร"
             >
-              <option value="auto">
-                ✨ อัตโนมัติ (ตามเวลา + ขนมแยกเอง)
-              </option>
-              <option value="breakfast">🌅 มื้อเช้า (Breakfast)</option>
-              <option value="lunch">☀️ มื้อเที่ยง (Lunch)</option>
-              <option value="dinner">🌙 มื้อเย็น (Dinner)</option>
+              <option value="auto">✨ อัตโนมัติตามเวลา (และแยกขนมจากรูป)</option>
+              <option value="breakfast">🌅 มื้อเช้า (04:00 – 10:59 น.)</option>
+              <option value="lunch">☀️ มื้อเที่ยง (11:00 – 15:59 น.)</option>
+              <option value="dinner">🌙 มื้อเย็น (16:00 – 03:59 น.)</option>
               <option value="snacks">🍰 ของว่าง/ขนม (Snacks)</option>
             </select>
-          </div>
-
-          {/* Quick 1-Tap Category Pills */}
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            <button
-              type="button"
-              onClick={() => {
-                setIsAutoCategory(true);
-                setMealCategory(getMealCategoryByTime());
-              }}
-              className={`btn btn-sm ${
-                isAutoCategory ? 'btn-primary' : 'btn-secondary'
-              }`}
-              style={{
-                fontSize: '0.75rem',
-                padding: '0.3rem 0.7rem',
-                borderRadius: '999px',
-              }}
-            >
-              ✨ อัตโนมัติ (ตามเวลา/รูปภาพ)
-            </button>
-            {(['breakfast', 'lunch', 'dinner', 'snacks'] as MealCategory[]).map(
-              (cat) => {
-                const isSelectedManual = !isAutoCategory && mealCategory === cat;
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => {
-                      setIsAutoCategory(false);
-                      setMealCategory(cat);
-                    }}
-                    className={`btn btn-sm ${
-                      isSelectedManual ? 'btn-primary' : 'btn-secondary'
-                    }`}
-                    style={{
-                      fontSize: '0.75rem',
-                      padding: '0.3rem 0.7rem',
-                      borderRadius: '999px',
-                    }}
-                  >
-                    {MEAL_LABELS[cat]}
-                  </button>
-                );
-              }
-            )}
-          </div>
-
-          {/* Helpful Status Banner */}
-          <div className="text-xs text-[#64748B] flex items-center gap-1.5 leading-relaxed">
-            {isAutoCategory ? (
-              <span>
-                🕒 <strong>โหมดอัตโนมัติทำงานอยู่:</strong> ตอนนี้เวลา{' '}
-                <strong>{currentTimeStr}</strong> ระบบตั้งค่าเริ่มต้นเป็น{' '}
-                <strong className="text-[#6258F5]">
-                  {MEAL_LABELS[timeBasedCategory]}
-                </strong>{' '}
-                • แต่ถ้าในรูปเป็น<strong>ขนม ของหวาน เบเกอรี่ หรือเครื่องดื่ม</strong>{' '}
-                ระบบจะแยกไปหมวด <strong>🍰 ของว่าง/ขนม</strong> ให้อัตโนมัติ!
-              </span>
-            ) : (
-              <span>
-                📌 <strong>เลือกมื้อเอง:</strong> กำหนดเป็น{' '}
-                <strong className="text-[#6258F5]">
-                  {MEAL_LABELS[mealCategory]}
-                </strong>{' '}
-                (กดปุ่ม <em>"✨ อัตโนมัติ"</em> ด้านบนหากต้องการให้ระบบเลือกตามเวลาและรูปภาพ)
-              </span>
-            )}
+            <ChevronDown
+              size={14}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#858BA0]"
+            />
           </div>
         </div>
 
