@@ -355,6 +355,69 @@ export async function deleteMealItem(id: string): Promise<void> {
 }
 
 /**
+ * Saves or updates a custom food created by the user into the local food catalog.
+ * The food is remembered permanently and can be searched or selected repeatedly.
+ */
+export async function saveCustomCatalogFood(params: {
+  id?: string;
+  name: string;
+  category?: string;
+  servingGrams: number;
+  calories: number;
+  protein: number;
+  carbohydrates: number;
+  fat: number;
+  sodiumMg?: number;
+  sugarG?: number;
+  portionPresets?: { label: string; grams: number }[];
+  barcode?: string;
+}): Promise<FoodCatalogItem> {
+  const g = Math.max(1, params.servingGrams);
+  const factor = 100 / g;
+  const now = new Date().toISOString();
+  const id = params.id || `custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+  const item: FoodCatalogItem = {
+    id,
+    name: params.name.trim(),
+    category: params.category?.trim() || 'อาหารของฉัน',
+    defaultServingGrams: Math.round(g),
+    portionPresets:
+      params.portionPresets && params.portionPresets.length > 0
+        ? params.portionPresets
+        : [
+            { label: '1 เสิร์ฟ', grams: Math.round(g) },
+            { label: 'ครึ่งเสิร์ฟ', grams: Math.round(g / 2) },
+            { label: '100g', grams: 100 },
+          ],
+    caloriesPer100g: Math.round(params.calories * factor * 100) / 100,
+    proteinPer100g: Math.round(params.protein * factor * 100) / 100,
+    carbsPer100g: Math.round(params.carbohydrates * factor * 100) / 100,
+    fatPer100g: Math.round(params.fat * factor * 100) / 100,
+    sodiumMgPer100g:
+      params.sodiumMg !== undefined ? Math.round(params.sodiumMg * factor) : undefined,
+    sugarGPer100g:
+      params.sugarG !== undefined ? Math.round(params.sugarG * factor * 10) / 10 : undefined,
+    barcode: params.barcode,
+    source: 'user_custom',
+    sourceLabel: 'อาหารของฉัน (Custom)',
+    usageCount: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await db.foodCatalog.put(item);
+  return item;
+}
+
+/**
+ * Removes a custom food from the user's food catalog.
+ */
+export async function deleteCustomCatalogFood(id: string): Promise<void> {
+  await db.foodCatalog.delete(id);
+}
+
+/**
  * Logs a training session (e.g., Swimming or Strength Training) or water intake into `activityLogs`.
  */
 export async function addActivityLogEntry(params: {

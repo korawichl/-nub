@@ -19,6 +19,7 @@ import {
 } from '../utils/nutritionCalculator';
 import {
   addCatalogFoodToMeal,
+  deleteCustomCatalogFood,
   deleteMealItem,
   updateMealItemSnapshot,
 } from '../db/database';
@@ -36,6 +37,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { MonthlyCalendar } from './MonthlyCalendar';
+import { AddCustomFoodModal } from './AddCustomFoodModal';
 
 interface FoodDiaryProps {
   selectedDate: string;
@@ -91,7 +93,7 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
   initialCategory = 'breakfast',
   editingItem,
   onClearEditingItem,
-  onOpenConfirmMeal,
+  onOpenConfirmMeal: _onOpenConfirmMeal,
 }) => {
   const [viewMode, setViewMode] = useState<'daily' | 'calendar'>('daily');
   const [activeCategory, setActiveCategory] =
@@ -102,6 +104,11 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
   const [portionGramsMap, setPortionGramsMap] = useState<Record<string, string>>(
     {}
   );
+
+  // Custom Food Modal (Add/Edit and memory in foodCatalog)
+  const [isAddCustomModalOpen, setIsAddCustomModalOpen] = useState(false);
+  const [editingCustomCatalogItem, setEditingCustomCatalogItem] =
+    useState<FoodCatalogItem | null>(null);
 
   // Inline Edit Modal State for an existing MealItem
   const [editId, setEditId] = useState<string | null>(editingItem?.id || null);
@@ -231,7 +238,10 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
 
   const catalogCategories = [
     'ALL',
-    ...Array.from(new Set(catalog.map((c) => c.category || 'Other'))),
+    '⭐ อาหารของฉัน',
+    ...Array.from(new Set(catalog.map((c) => c.category || 'Other'))).filter(
+      (c) => c !== 'อาหารของฉัน' && c !== '⭐ อาหารของฉัน'
+    ),
   ];
 
   const filteredCatalog = catalog.filter((c) => {
@@ -239,8 +249,11 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
       .toLowerCase()
       .includes(searchTerm.trim().toLowerCase());
     const matchesCat =
-      selectedCatalogCategory === 'ALL' ||
-      (c.category || 'Other') === selectedCatalogCategory;
+      selectedCatalogCategory === 'ALL'
+        ? true
+        : selectedCatalogCategory === '⭐ อาหารของฉัน'
+        ? c.source === 'user_custom' || c.category === 'อาหารของฉัน'
+        : (c.category || 'Other') === selectedCatalogCategory;
     return matchesSearch && matchesCat;
   });
 
@@ -597,21 +610,12 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
                   className="btn btn-secondary btn-sm"
                   onClick={() => {
                     setActiveCategory(key);
-                    onOpenConfirmMeal({
-                      foodName: '',
-                      ingredients: '',
-                      servingGrams: 150,
-                      calories: 0,
-                      protein: 0,
-                      carbohydrates: 0,
-                      fat: 0,
-                      category: key,
-                      source: 'user_custom',
-                      requiresExplicitConfirmation: false,
-                    });
+                    setEditingCustomCatalogItem(null);
+                    setIsAddCustomModalOpen(true);
                   }}
+                  title={`เพิ่มอาหารเองสำหรับ ${label}`}
                 >
-                  <Plus size={14} /> Custom {label}
+                  <Plus size={14} /> เพิ่มอาหาร ({label})
                 </button>
               </div>
 
@@ -677,30 +681,50 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
       <section className="card">
         <div className="section-header">
           <div>
-            <h2 className="section-title">
-              <Star size={18} /> ค้นหาอาหารไทย & วัตถุดิบ (พร้อมหน่วยตวงด่วน)
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="section-title">
+                <Star size={18} /> ค้นหาอาหาร & เมนูของฉัน
+              </h2>
+              <span className="text-[11px] font-bold text-[#6258F5] bg-[#EFEDFF] px-2 py-0.5 rounded-full">
+                {catalog.length} รายการ
+              </span>
+            </div>
             <p className="screen-subtitle">
-              เลือกมื้ออาหาร กดปุ่มหน่วยตวง (เช่น 1 ทัพพี, 1 จาน, 1 ฟอง) หรือระบุกรัมเองได้เลย
+              เลือกมื้ออาหาร กดปุ่มหน่วยตวง หรือพิมพ์ชื่ออาหาร ค้นหาได้ทันที
             </p>
           </div>
 
-          <div className="form-row-inline">
-            <label htmlFor="diary-target-cat" className="field-label">
-              Log to:
-            </label>
-            <select
-              id="diary-target-cat"
-              className="input-select"
-              value={activeCategory}
-              onChange={(e) => setActiveCategory(e.target.value as MealCategory)}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                setEditingCustomCatalogItem(null);
+                setIsAddCustomModalOpen(true);
+              }}
+              className="btn btn-primary btn-sm flex items-center gap-1.5 shadow-xs"
+              title="สร้างเมนูอาหารใหม่และจดจำไว้ใช้ซ้ำได้ตลอดเวลา"
             >
-              {CATEGORIES.map((c) => (
-                <option key={c.key} value={c.key}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+              <Plus size={15} />
+              <span>เพิ่มอาหารเอง (สร้างเมนูใหม่)</span>
+            </button>
+
+            <div className="form-row-inline">
+              <label htmlFor="diary-target-cat" className="field-label">
+                Log to:
+              </label>
+              <select
+                id="diary-target-cat"
+                className="input-select"
+                value={activeCategory}
+                onChange={(e) => setActiveCategory(e.target.value as MealCategory)}
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -786,7 +810,15 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
             return (
               <div key={food.id} className="catalog-item-row">
                 <div className="catalog-item-main" style={{ flex: 1, minWidth: '240px' }}>
-                  <div className="catalog-item-title">{food.name}</div>
+                  <div className="catalog-item-title flex items-center gap-2 flex-wrap">
+                    <span>{food.name}</span>
+                    {food.source === 'user_custom' && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#6258F5] bg-[#EFEDFF] px-2 py-0.5 rounded-full border border-[#E0DCFE]">
+                        <Star size={10} className="fill-[#6258F5]" />
+                        <span>อาหารของฉัน</span>
+                      </span>
+                    )}
+                  </div>
                   <div className="catalog-item-sub">
                     Per 100g: {food.caloriesPer100g} kcal · P {food.proteinPer100g}g · C{' '}
                     {food.carbsPer100g}g · F {food.fatPer100g}g
@@ -841,6 +873,40 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
                 </div>
 
                 <div className="catalog-item-controls">
+                  {food.source === 'user_custom' && (
+                    <div className="flex items-center gap-1 mr-1">
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        title="แก้ไขเมนูอาหารนี้"
+                        aria-label={`แก้ไข ${food.name}`}
+                        onClick={() => {
+                          setEditingCustomCatalogItem(food);
+                          setIsAddCustomModalOpen(true);
+                        }}
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn icon-btn-danger"
+                        title="ลบเมนูนี้ออกจากคลัง"
+                        aria-label={`ลบ ${food.name}`}
+                        onClick={async () => {
+                          if (
+                            window.confirm(
+                              `ต้องการลบเมนู "${food.name}" ออกจากคลังอาหารที่จำไว้หรือไม่?`
+                            )
+                          ) {
+                            await deleteCustomCatalogFood(food.id);
+                          }
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  )}
+
                   <div className="grams-input-group">
                     <input
                       type="number"
@@ -873,6 +939,18 @@ export const FoodDiary: React.FC<FoodDiaryProps> = ({
       </section>
         </>
       )}
+
+      {/* Add / Edit Custom Food Modal */}
+      <AddCustomFoodModal
+        isOpen={isAddCustomModalOpen}
+        onClose={() => {
+          setIsAddCustomModalOpen(false);
+          setEditingCustomCatalogItem(null);
+        }}
+        initialItem={editingCustomCatalogItem}
+        defaultCategory={activeCategory}
+        targetDate={selectedDate}
+      />
     </div>
   );
 };

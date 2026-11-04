@@ -31,6 +31,7 @@ import {
 import { getFoodAnalysisProvider } from '../services/aiProvider';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { ShareSummaryModal } from './ShareSummaryModal';
+import { AddCustomFoodModal } from './AddCustomFoodModal';
 import {
   addActivityLogEntry,
   addCatalogFoodToMeal,
@@ -131,6 +132,7 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
   // Modals state
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isAddCustomModalOpen, setIsAddCustomModalOpen] = useState(false);
 
   // Natural Language / Voice AI Prompt State
   const [textPrompt, setTextPrompt] = useState('');
@@ -1225,24 +1227,12 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
             {/* Add Custom Meal */}
             <button
               type="button"
-              onClick={() =>
-                onOpenConfirmMeal({
-                  foodName: '',
-                  ingredients: '',
-                  servingGrams: 150,
-                  calories: 0,
-                  protein: 0,
-                  carbohydrates: 0,
-                  fat: 0,
-                  category: 'lunch',
-                  source: 'user_custom',
-                  requiresExplicitConfirmation: false,
-                })
-              }
-              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] rounded-full transition-colors"
+              onClick={() => setIsAddCustomModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] rounded-full transition-colors shadow-2xs"
+              title="เพิ่มอาหารเองและจดจำลงคลัง"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Add Food</span>
+              <span>+ เพิ่มอาหารเอง (จำเมนู)</span>
             </button>
           </div>
         </div>
@@ -1539,6 +1529,13 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
         energyStatus={energyBalance.status}
         fatChangeG={energyBalance.estimatedFatChangeGrams}
         userName={profile.name || 'User'}
+      />
+
+      {/* Add Custom Food Modal */}
+      <AddCustomFoodModal
+        isOpen={isAddCustomModalOpen}
+        onClose={() => setIsAddCustomModalOpen(false)}
+        targetDate={todayBangkok}
       />
     </div>
   );

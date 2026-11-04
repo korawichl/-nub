@@ -21,6 +21,7 @@ import {
 } from '../utils/date';
 import { calculateFoodNutrition, estimateRoughNutrition } from '../utils/nutritionCalculator';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
+import { AddCustomFoodModal } from './AddCustomFoodModal';
 import {
   Camera,
   Upload,
@@ -35,6 +36,7 @@ import {
   ScanBarcode,
   Clock,
   ChevronDown,
+  Plus,
 } from 'lucide-react';
 
 interface FoodScannerProps {
@@ -80,6 +82,7 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
   const [selectedCuisineTab, setSelectedCuisineTab] = useState<string>('ALL');
   const [isEstimatingQuery, setIsEstimatingQuery] = useState(false);
   const [isBarcodeOpen, setIsBarcodeOpen] = useState(false);
+  const [isAddCustomModalOpen, setIsAddCustomModalOpen] = useState(false);
   const [quickMealInput, setQuickMealInput] = useState('');
 
   const timeBasedCategory = getMealCategoryByTime();
@@ -472,6 +475,7 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
 
   const CUISINE_TABS = [
     { id: 'ALL', label: 'ทั้งหมด (All)' },
+    { id: 'CUSTOM', label: '⭐ อาหารของฉัน' },
     { id: 'JAPANESE', label: '🇯🇵 ญี่ปุ่น' },
     { id: 'INDIAN', label: '🇮🇳 อินเดีย' },
     { id: 'KOREAN', label: '🇰🇷 เกาหลี' },
@@ -492,6 +496,13 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
       if (!matchesSearch) return false;
 
       if (selectedCuisineTab === 'ALL') return true;
+
+      if (selectedCuisineTab === 'CUSTOM') {
+        return (
+          item.source === 'user_custom' ||
+          (item.category && item.category.includes('อาหารของฉัน'))
+        );
+      }
 
       const cat = (item.category || '').toLowerCase();
       const name = item.name.toLowerCase();
@@ -890,13 +901,24 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
               มีอาหารญี่ปุ่น, อินเดีย, เกาหลี, อาหารไทยยอดนิยม, สเต๊กตะวันตก, คลีน, เครื่องดื่มคาเฟ่ และของหวาน
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={handleManualBlankEntry}
-          >
-            <Edit3 size={15} /> กรอกเมนูเอง
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm flex items-center gap-1.5"
+              onClick={() => setIsAddCustomModalOpen(true)}
+              title="เพิ่มอาหารเองและจดจำลงคลัง"
+            >
+              <Plus size={15} />
+              <span>+ เพิ่มอาหารเอง (จำเมนู)</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleManualBlankEntry}
+            >
+              <Edit3 size={15} /> กรอกเมนูด่วน
+            </button>
+          </div>
         </div>
 
         {/* Cuisine Filter Pills */}
@@ -1106,6 +1128,12 @@ export const FoodScanner: React.FC<FoodScannerProps> = ({
         }}
         defaultCategory={isAutoCategory ? timeBasedCategory : mealCategory}
         settings={settings}
+      />
+
+      <AddCustomFoodModal
+        isOpen={isAddCustomModalOpen}
+        onClose={() => setIsAddCustomModalOpen(false)}
+        defaultCategory={isAutoCategory ? timeBasedCategory : mealCategory}
       />
     </div>
   );

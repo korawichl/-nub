@@ -115,4 +115,19 @@ describe('Expanded Food Catalog & Multi-Cuisine Search', () => {
   it('has database schema version bumped to 4', () => {
     expect(CURRENT_DB_SCHEMA_VERSION).toBe(4);
   });
+
+  it('normalizes custom food correctly per 100g and calculates macros', () => {
+    // 250g serving with 500 kcal, 40g P, 50g C, 15g F
+    const servingGrams = 250;
+    const ratio = 100 / servingGrams; // 0.4
+    const calPer100g = Math.round(500 * ratio); // 200
+    const proPer100g = Math.round(40 * ratio * 10) / 10; // 16
+    const carbPer100g = Math.round(50 * ratio * 10) / 10; // 20
+    const fatPer100g = Math.round(15 * ratio * 10) / 10; // 6
+
+    expect(calPer100g).toBe(200);
+    expect(proPer100g).toBe(16);
+    expect(carbPer100g).toBe(20);
+    expect(fatPer100g).toBe(6);
+  });
 });

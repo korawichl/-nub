@@ -57,7 +57,15 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
       ? 'snack_detected'
       : 'time';
   });
-  const [saveToCatalog, setSaveToCatalog] = useState(Boolean(draft.saveToCatalog));
+  const [saveToCatalog, setSaveToCatalog] = useState<boolean>(() => {
+    if (draft.saveToCatalog !== undefined) return draft.saveToCatalog;
+    // Default to true for custom meals, user estimates, or newly named foods
+    return (
+      draft.source === 'user_custom' ||
+      draft.source === 'user_estimated' ||
+      !draft.barcode
+    );
+  });
   const [explicitlyConfirmed, setExplicitlyConfirmed] = useState(
     !draft.requiresExplicitConfirmation
   );
@@ -145,8 +153,13 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
       await db.foodCatalog.put({
         id: catalogId,
         name: trimmedName,
-        category: 'User Custom',
+        category: 'อาหารของฉัน',
         defaultServingGrams: Math.round(g),
+        portionPresets: [
+          { label: '1 เสิร์ฟ', grams: Math.round(g) },
+          { label: 'ครึ่งเสิร์ฟ', grams: Math.round(g / 2) },
+          { label: '100g', grams: 100 },
+        ],
         caloriesPer100g: Math.round(cal * factor * 100) / 100,
         proteinPer100g: Math.round(pro * factor * 100) / 100,
         carbsPer100g: Math.round(carb * factor * 100) / 100,
@@ -158,7 +171,7 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
         sourceLabel:
           draft.source === 'ai_confirmed'
             ? 'AI Estimate (User Confirmed)'
-            : 'User Provided / Custom Entry',
+            : 'อาหารของฉัน (Custom)',
         usageCount: 1,
         createdAt: now,
         updatedAt: now,
@@ -445,16 +458,30 @@ export const ConfirmMeal: React.FC<ConfirmMealProps> = ({
             </div>
           </div>
 
-          <div className="checkbox-row">
+          <div
+            className="checkbox-row"
+            style={{
+              padding: '0.75rem 1rem',
+              borderRadius: '16px',
+              backgroundColor: saveToCatalog ? '#EFEDFF' : 'var(--color-bg-subtle, #F6F7FB)',
+              border: `1.5px solid ${saveToCatalog ? '#6258F5' : 'var(--color-border, #E9EAF2)'}`,
+              transition: 'all 0.2s ease',
+            }}
+          >
             <input
               id="save-catalog-check"
               type="checkbox"
               checked={saveToCatalog}
               onChange={(e) => setSaveToCatalog(e.target.checked)}
+              style={{ width: '1.15rem', height: '1.15rem', accentColor: '#6258F5' }}
             />
-            <label htmlFor="save-catalog-check">
-              Also save this food (normalized per 100g) to my local Food Catalog for future
-              reuse
+            <label htmlFor="save-catalog-check" style={{ cursor: 'pointer', margin: 0 }}>
+              <strong style={{ color: '#6258F5', display: 'block', fontSize: '0.85rem' }}>
+                ⭐ บันทึกและจดจำไว้ใน "อาหารของฉัน" (Save to My Foods)
+              </strong>
+              <span style={{ fontSize: '0.75rem', color: '#64748B', display: 'block', marginTop: '2px' }}>
+                เก็บเข้าคลังอาหารอัตโนมัติ เพื่อค้นหาหรือกดเลือกกินซ้ำได้ทันทีในครั้งถัดไป
+              </span>
             </label>
           </div>
 
