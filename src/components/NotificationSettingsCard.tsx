@@ -11,6 +11,8 @@ import {
   requestNotificationPermission,
   triggerRandomFoodReminder,
   sendNotification,
+  getNotificationDiagnostic,
+  playNotificationSound,
   type ReminderSlot,
 } from '../services/notificationService';
 import {
@@ -25,6 +27,7 @@ import {
   ChevronUp,
   Play,
   RotateCcw,
+  Smartphone,
 } from 'lucide-react';
 
 interface NotificationSettingsCardProps {
@@ -52,6 +55,8 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
   const [galleryFilter, setGalleryFilter] = useState<'all' | 'morning' | 'noon' | 'evening' | 'general'>('all');
   const [testStatus, setTestStatus] = useState<string | null>(null);
 
+  const diag = getNotificationDiagnostic();
+
   useEffect(() => {
     setPermission(getNotificationPermission());
   }, []);
@@ -64,11 +69,15 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
   }, [settings.notificationsEnabled, settings.notificationTimes]);
 
   const handleRequestPermission = async () => {
+    playNotificationSound();
     const res = await requestNotificationPermission();
     setPermission(res);
     if (res === 'granted') {
-      setTestStatus('✅ อนุญาตการแจ้งเตือนเรียบร้อยแล้ว!');
+      setTestStatus('✅ อนุญาตการแจ้งเตือนเรียบร้อยแล้ว! กำลังส่งข้อความทดสอบ...');
+      await triggerRandomFoodReminder('any');
       setTimeout(() => setTestStatus(null), 3500);
+    } else if (res === 'denied') {
+      setTestStatus('❌ การแจ้งเตือนถูกบล็อกในเบราว์เซอร์ กรุณากดไอคอนแม่กุญแจ 🔒 ที่แถบ URL เพื่อเปิดอนุญาต');
     }
   };
 
@@ -99,35 +108,49 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
   };
 
   const handleTestRandom = async (slot?: ReminderSlot | 'any') => {
+    playNotificationSound();
+    if (permission === 'default') {
+      await handleRequestPermission();
+    }
     setTestStatus('กำลังยิงแจ้งเตือน...');
     const res = await triggerRandomFoodReminder(slot);
+    setPermission(getNotificationPermission());
     if (res.success) {
-      setTestStatus(`ส่งสำเร็จ! (${res.title})`);
+      setTestStatus(`ส่งสำเร็จ! มีเสียงเตือน & การสั่น (${res.title})`);
     } else {
-      setTestStatus(`ส่งแบบ In-App แล้ว (เปิด Permission เพื่อให้เด้งบนเครื่อง)`);
+      setTestStatus(`ส่งแบบ In-App แล้ว (${getNotificationDiagnostic().advice})`);
     }
     if (onNotificationSent) {
       onNotificationSent(res.title, res.messageText);
     }
-    setTimeout(() => setTestStatus(null), 4000);
+    setTimeout(() => setTestStatus(null), 5000);
   };
 
   const handleTestSpecificMessage = async (item: NotificationMessageItem) => {
+    playNotificationSound();
+    if (permission === 'default') {
+      await handleRequestPermission();
+    }
     let title = '🔔 nub: เตือนบันทึกอาหาร';
     if (item.slot === 'morning') title = '🌅 nub: ได้เวลาจดมื้อเช้าแล้วตูน!';
     if (item.slot === 'noon') title = '☀️ nub: เที่ยงแล้ว อย่าลืมจดแคลนะไออ้วน!';
     if (item.slot === 'evening') title = '🌙 nub: มื้อเย็นกินอะไรไป จดด่วน!';
 
-    await sendNotification(title, item.text, {
+    const success = await sendNotification(title, item.text, {
       slot: item.slot,
       tag: `nub-test-${item.id}`,
     });
+    setPermission(getNotificationPermission());
 
-    setTestStatus(`ทดสอบข้อความที่ #${item.id} เรียบร้อย!`);
+    setTestStatus(
+      success
+        ? `ทดสอบข้อความ #${item.id} สำเร็จ! (มีเสียงเตือน)`
+        : `แสดงผลในแอปแล้ว (${getNotificationDiagnostic().advice})`
+    );
     if (onNotificationSent) {
       onNotificationSent(title, item.text);
     }
-    setTimeout(() => setTestStatus(null), 3500);
+    setTimeout(() => setTestStatus(null), 4500);
   };
 
   const handleResetSchedule = async () => {
@@ -181,6 +204,31 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
         </button>
       </div>
 
+      {/* Device Guidance Banners */}
+      {diag.isInAppBrowser && (
+        <div className="p-3.5 rounded-2xl bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] flex items-start gap-2.5 text-xs shadow-2xs">
+          <AlertCircle className="w-5 h-5 text-[#D97706] shrink-0 mt-0.5" />
+          <div>
+            <strong className="block font-bold">⚠️ กำลังเปิดในเบราว์เซอร์ของ LINE / Facebook:</strong>
+            <p className="mt-0.5 leading-relaxed">
+              เบราว์เซอร์ในแอปแชทจะบล็อกระบบ Notification ทั้งหมด กรุณาแตะที่ <strong>จุดสามจุด ⋯ (ขวาบน)</strong> แล้วเลือก <strong>"เปิดในเบราว์เซอร์เริ่มต้น" (Open in Chrome หรือ Safari)</strong> เพื่อให้แจ้งเตือนเด้งได้
+            </p>
+          </div>
+        </div>
+      )}
+
+      {diag.isIos && !diag.isStandalone && (
+        <div className="p-3.5 rounded-2xl bg-[#EFEDFF] border border-[#E0DCFE] text-[#20243A] flex items-start gap-2.5 text-xs shadow-2xs">
+          <Smartphone className="w-5 h-5 text-[#6258F5] shrink-0 mt-0.5" />
+          <div>
+            <strong className="block font-bold text-[#6258F5]">📱 วิธีเปิดรับแจ้งเตือนสำหรับ iPhone / iPad:</strong>
+            <p className="mt-0.5 text-[#858BA0] leading-relaxed">
+              Apple Safari กำหนดให้ต้องแตะปุ่มแชร์ <strong>[↑]</strong> ใน Safari แล้วเลือก <strong>"เพิ่มไปยังหน้าจอโฮม" (Add to Home Screen)</strong> จากนั้นเปิดแอปจากไอคอนบนหน้าจอโฮม จึงจะเปิดรับการแจ้งเตือนได้
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Permission Status Alert */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F6F7FB] border border-[#E9EAF2]">
         <div className="flex items-center gap-2.5">
@@ -218,7 +266,7 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
                 ? 'ระบบจะส่ง Notification เด้งเตือนบนหน้าจอมือถือและเดสก์ท็อปตามเวลาอัตโนมัติ'
                 : permission === 'denied'
                 ? 'หากต้องการรับการแจ้งเตือน กรุณาแตะที่ไอคอนแม่กุญแจบนแถบ URL แล้วเปลี่ยนสิทธิ์การแจ้งเตือนเป็น "อนุญาต"'
-                : 'แตะปุ่มเพื่อเปิดให้แอป nub สามารถส่งข้อความเตือนคุณได้'}
+                : 'แตะปุ่ม "เปิดสิทธิ์แจ้งเตือนบนเครื่อง" เพื่อให้เบราว์เซอร์อนุญาตส่งข้อความเตือนคุณ'}
             </p>
           </div>
         </div>
@@ -227,10 +275,10 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
           <button
             type="button"
             onClick={handleRequestPermission}
-            className="btn btn-primary btn-sm whitespace-nowrap self-start sm:self-center"
+            className="btn btn-primary btn-sm whitespace-nowrap self-start sm:self-center shadow-md shadow-[#6258F5]/25 flex items-center gap-1.5 cursor-pointer"
           >
             <BellRing size={14} />
-            <span>ขอเปิดการแจ้งเตือน</span>
+            <span>เปิดสิทธิ์แจ้งเตือนบนเครื่อง</span>
           </button>
         )}
       </div>

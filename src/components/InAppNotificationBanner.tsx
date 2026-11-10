@@ -38,10 +38,15 @@ export const InAppNotificationBanner: React.FC<InAppNotificationBannerProps> = (
   if (!currentNotification) return null;
 
   return (
-    <div className="fixed top-4 left-4 right-4 z-50 max-w-lg mx-auto animate-bounce-in pointer-events-auto">
-      <div className="bg-[#17213D] text-white p-4 rounded-2xl shadow-2xl border-2 border-[#6258F5] flex items-start gap-3 backdrop-blur-md">
-        <div className="w-9 h-9 rounded-xl bg-[#6258F5] flex items-center justify-center shrink-0 shadow-md">
-          <Bell className="w-5 h-5 text-white animate-pulse" />
+    <div
+      className="fixed top-4 left-4 right-4 z-[9999] max-w-lg mx-auto pointer-events-auto transition-all duration-300 ease-out"
+      style={{
+        animation: 'slideInTop 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+      }}
+    >
+      <div className="bg-[#17213D] text-white p-4 rounded-2xl shadow-2xl border-2 border-[#6258F5] flex items-start gap-3 backdrop-blur-xl">
+        <div className="w-10 h-10 rounded-xl bg-[#6258F5] flex items-center justify-center shrink-0 shadow-lg shadow-[#6258F5]/40">
+          <Bell className="w-5 h-5 text-white animate-bounce" />
         </div>
 
         <div className="flex-1 min-w-0">

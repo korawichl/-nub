@@ -86,6 +86,129 @@ export interface InAppNotificationEventDetail {
   timestamp: string;
 }
 
+export interface NotificationDiagnostic {
+  isSupported: boolean;
+  permission: NotificationPermission | 'unsupported';
+  isSecureContext: boolean;
+  isIos: boolean;
+  isAndroid: boolean;
+  isStandalone: boolean;
+  isInAppBrowser: boolean;
+  hasServiceWorker: boolean;
+  statusHeadline: string;
+  advice: string;
+}
+
+/**
+ * Diagnostic helper to understand why notification may not bounce on current device
+ */
+export function getNotificationDiagnostic(): NotificationDiagnostic {
+  if (typeof window === 'undefined') {
+    return {
+      isSupported: false,
+      permission: 'unsupported',
+      isSecureContext: false,
+      isIos: false,
+      isAndroid: false,
+      isStandalone: false,
+      isInAppBrowser: false,
+      hasServiceWorker: false,
+      statusHeadline: 'Server-side / Test environment',
+      advice: 'การแจ้งเตือนทำงานได้เฉพาะบนเบราว์เซอร์เท่านั้น',
+    };
+  }
+
+  const isSupported = isNotificationSupported();
+  const permission = isSupported ? Notification.permission : 'unsupported';
+  const isSecureContext =
+    window.isSecureContext ||
+    window.location.protocol === 'https:' ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1';
+
+  const ua = navigator.userAgent || '';
+  const isIos = /iPhone|iPad|iPod/i.test(ua);
+  const isAndroid = /Android/i.test(ua);
+  const isInAppBrowser = /Line|FBAN|FBAV|Instagram|Twitter|MicroMessenger/i.test(ua);
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    Boolean((navigator as any).standalone);
+  const hasServiceWorker = 'serviceWorker' in navigator;
+
+  let statusHeadline = 'พร้อมใช้งาน';
+  let advice = 'ระบบแจ้งเตือนทำงานได้ตามปกติ';
+
+  if (isInAppBrowser) {
+    statusHeadline = 'เปิดในเบราว์เซอร์ของ LINE / Facebook';
+    advice = 'เบราว์เซอร์ของ LINE หรือ Facebook บล็อกการแจ้งเตือนทั้งหมด กรุณากดปุ่ม ⋯ (ขวาบน) แล้วเลือก "เปิดใน Chrome" หรือ "เปิดใน Safari"';
+  } else if (!isSecureContext) {
+    statusHeadline = 'ไม่ได้เชื่อมต่อผ่าน HTTPS';
+    advice = 'เบราว์เซอร์กำหนดให้การแจ้งเตือนต้องเปิดผ่าน https:// หรือ localhost เท่านั้น หากใช้ผ่าน Wi-Fi IP อาจถูกบล็อก';
+  } else if (isIos && !isStandalone) {
+    statusHeadline = 'iPhone ต้อง "เพิ่มไปยังหน้าจอโฮม"';
+    advice = 'บน iOS/iPhone ให้แตะปุ่มแชร์ [↑] ใน Safari แล้วเลือก "เพิ่มไปยังหน้าจอโฮม" (Add to Home Screen) จากนั้นเปิดแอปจากไอคอนบนหน้าจอโฮมจึงจะรับการแจ้งเตือนได้';
+  } else if (permission === 'denied') {
+    statusHeadline = 'ถูกบล็อกในเบราว์เซอร์ (Blocked)';
+    advice = 'คุณเคยปฏิเสธหรือบล็อกการแจ้งเตือนไว้ กรุณากดไอคอนแม่กุญแจ 🔒 ที่แถบพิมพ์ URL ของเบราว์เซอร์ แล้วเปลี่ยนสิทธิ์การแจ้งเตือนเป็น "อนุญาต" (Allow)';
+  } else if (permission === 'default') {
+    statusHeadline = 'ยังไม่ได้กดอนุญาต (Pending Permission)';
+    advice = 'กรุณากดปุ่ม "ขอเปิดการแจ้งเตือน" หรือ "⚡ สุ่มยิงเลย" แล้วกด "อนุญาต" บนหน้าต่างของเบราว์เซอร์';
+  }
+
+  return {
+    isSupported,
+    permission,
+    isSecureContext,
+    isIos,
+    isAndroid,
+    isStandalone,
+    isInAppBrowser,
+    hasServiceWorker,
+    statusHeadline,
+    advice,
+  };
+}
+
+/**
+ * Play an audible chime sound using Web Audio API synthesized tones
+ * Works offline, zero external audio asset dependencies.
+ */
+export function playNotificationSound(): void {
+  try {
+    if (typeof window === 'undefined') return;
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+
+    // First chime tone: E5 (659.25 Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(659.25, now);
+    gain1.gain.setValueAtTime(0.12, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.22);
+
+    // Second chime tone: A5 (880 Hz) - cheerful ding-dong
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880, now + 0.1);
+    gain2.gain.setValueAtTime(0.18, now + 0.1);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.1);
+    osc2.stop(now + 0.42);
+  } catch {
+    // Audio context may require user interaction first
+  }
+}
+
 /**
  * Send a notification either through Service Worker (preferred for PWA & mobile)
  * or through the standard window.Notification constructor fallback.
@@ -95,7 +218,9 @@ export async function sendNotification(
   body: string,
   options?: NotificationOptions & { slot?: ReminderSlot | 'general' | 'any'; vibrate?: number[] }
 ): Promise<boolean> {
-  // Always dispatch in-app event so the active tab can show a live toast banner
+  // Always trigger audio chime and in-app event so the active tab can see & hear it!
+  playNotificationSound();
+
   if (typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent<InAppNotificationEventDetail>('nub:in-app-notification', {
@@ -109,7 +234,19 @@ export async function sendNotification(
     );
   }
 
-  if (!isNotificationSupported() || Notification.permission !== 'granted') {
+  if (!isNotificationSupported()) {
+    return false;
+  }
+
+  // If permission is still 'default', prompt the user right now during user gesture!
+  if (Notification.permission === 'default') {
+    const requested = await requestNotificationPermission();
+    if (requested !== 'granted') {
+      return false;
+    }
+  }
+
+  if (Notification.permission !== 'granted') {
     return false;
   }
 
@@ -122,10 +259,17 @@ export async function sendNotification(
     }
   }
 
+  let resolvedIcon = '/icon.svg';
+  try {
+    resolvedIcon = new URL('icon.svg', window.location.href).href;
+  } catch {
+    // fallback
+  }
+
   const notificationOptions: Record<string, any> = {
     body,
-    icon: '/icon.svg',
-    badge: '/icon.svg',
+    icon: resolvedIcon,
+    badge: resolvedIcon,
     vibrate: [200, 100, 200],
     tag: options?.tag || `nub-reminder-${Date.now()}`,
     renotify: true,
@@ -133,10 +277,13 @@ export async function sendNotification(
     ...options,
   };
 
-  // Try Service Worker registration first (works best on Android / PWA background)
+  // 1. Try Service Worker registration first (works best on Android Chrome / PWA background)
   if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     try {
-      const reg = await navigator.serviceWorker.getRegistration();
+      const reg =
+        (await navigator.serviceWorker.getRegistration()) ||
+        (await navigator.serviceWorker.ready);
+
       if (reg && reg.showNotification) {
         await reg.showNotification(title, notificationOptions as NotificationOptions);
         return true;
@@ -144,9 +291,23 @@ export async function sendNotification(
     } catch (swErr) {
       console.warn('Service worker showNotification failed, trying fallback:', swErr);
     }
+
+    // Try posting message to active service worker controller
+    try {
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_NOTIFICATION',
+          title,
+          options: notificationOptions,
+        });
+        return true;
+      }
+    } catch {
+      // ignore
+    }
   }
 
-  // Fallback to standard web notification
+  // 2. Fallback to standard web notification constructor
   try {
     new Notification(title, notificationOptions as NotificationOptions);
     return true;

@@ -1,15 +1,20 @@
-const CACHE_NAME = 'nubcal-cache-v2';
+const CACHE_NAME = 'nubcal-cache-v4';
 const APP_SHELL = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/manifest.webmanifest',
-  '/icon.svg',
+  './',
+  './index.html',
+  './manifest.json',
+  './manifest.webmanifest',
+  './icon.svg',
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(APP_SHELL))
+      .catch((err) => {
+        console.warn('Cache addAll warning:', err);
+      })
   );
   self.skipWaiting();
 });
@@ -83,9 +88,9 @@ self.addEventListener('notificationclick', (event) => {
             return client.focus();
           }
         }
-        // Otherwise open the app
+        // Otherwise open the app at current scope
         if (self.clients.openWindow) {
-          return self.clients.openWindow('/');
+          return self.clients.openWindow(self.registration.scope || '/');
         }
       })
   );
@@ -95,9 +100,10 @@ self.addEventListener('notificationclick', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
     const { title, options } = event.data;
+    const iconUrl = new URL('icon.svg', self.registration.scope).href;
     self.registration.showNotification(title || 'nub: บันทึกอาหาร', {
-      icon: '/icon.svg',
-      badge: '/icon.svg',
+      icon: iconUrl,
+      badge: iconUrl,
       vibrate: [200, 100, 200],
       tag: options?.tag || 'nub-food-reminder',
       renotify: true,

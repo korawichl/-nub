@@ -4,18 +4,21 @@ import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 
-// Register PWA Service Worker ONLY in production builds over secure HTTPS
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+// Register PWA Service Worker across production, GitHub Pages, and local test environments
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
-      console.warn('Service worker registration failed:', err);
-    });
-  });
-} else if ('serviceWorker' in navigator && !import.meta.env.PROD) {
-  // In local development, unregister any lingering service workers to avoid stale caches
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister();
+    try {
+      const swUrl = new URL('sw.js', window.location.href).href;
+      navigator.serviceWorker
+        .register(swUrl)
+        .then((reg) => {
+          reg.update().catch(() => {});
+        })
+        .catch((err) => {
+          console.warn('Service worker registration failed:', err);
+        });
+    } catch (e) {
+      console.warn('Error resolving service worker URL:', e);
     }
   });
 }
