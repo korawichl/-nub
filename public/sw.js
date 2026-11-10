@@ -68,3 +68,40 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Handle notification click: Focus active window or open new one
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // If window already exists, focus it
+        for (const client of clientList) {
+          if ('focus' in client) {
+            return client.focus();
+          }
+        }
+        // Otherwise open the app
+        if (self.clients.openWindow) {
+          return self.clients.openWindow('/');
+        }
+      })
+  );
+});
+
+// Handle incoming messages to trigger notification from SW registration
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+    const { title, options } = event.data;
+    self.registration.showNotification(title || 'nub: บันทึกอาหาร', {
+      icon: '/icon.svg',
+      badge: '/icon.svg',
+      vibrate: [200, 100, 200],
+      tag: options?.tag || 'nub-food-reminder',
+      renotify: true,
+      ...options,
+    });
+  }
+});

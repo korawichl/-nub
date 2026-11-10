@@ -18,6 +18,8 @@ import { ConfirmMeal } from './components/ConfirmMeal';
 import { FoodDiary } from './components/FoodDiary';
 import { ProgressScreen } from './components/ProgressScreen';
 import { SettingsScreen } from './components/SettingsScreen';
+import { InAppNotificationBanner } from './components/InAppNotificationBanner';
+import { startNotificationScheduler } from './services/notificationService';
 import {
   LayoutDashboard,
   Camera,
@@ -99,6 +101,12 @@ export const App: React.FC = () => {
       );
     }
   }, [settings?.theme]);
+
+  // Start background 08:00, 12:00, 17:00 food reminder scheduler
+  useEffect(() => {
+    const cleanup = startNotificationScheduler(() => settings);
+    return cleanup;
+  }, [settings]);
 
   const handleCycleTheme = async () => {
     const nextTheme: ThemeMode =
@@ -189,6 +197,9 @@ export const App: React.FC = () => {
           <circle cx="500" cy="500" r="750" stroke="#DCE0F5" strokeWidth="1" />
         </svg>
       </div>
+
+      {/* Floating In-App Reminder Toast Banner */}
+      <InAppNotificationBanner onOpenDiary={() => setActiveTab('diary')} />
 
       {/* Main Large White Rounded Container (Full-bleed on mobile, rounded card canvas on desktop) */}
       <div className="relative w-full max-w-[1440px] min-h-screen lg:min-h-[920px] bg-white rounded-none lg:rounded-[36px] shadow-none lg:shadow-2xl lg:shadow-[#17213D]/5 border-none lg:border border-[#E9EAF2] flex overflow-hidden z-10">

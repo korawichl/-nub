@@ -22,6 +22,7 @@ import {
   calculateTDEE,
 } from '../utils/nutritionCalculator';
 import { getFoodAnalysisProvider } from '../services/aiProvider';
+import { NotificationSettingsCard } from './NotificationSettingsCard';
 import {
   User,
   Target,
@@ -437,6 +438,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </div>
         </div>
       </section>
+
+      {/* Smart Notification Reminders (08:00, 12:00, 17:00 & 50 Gen Z Memes) */}
+      <NotificationSettingsCard settings={settings} />
 
       {/* AI Integration Status */}
       <section className="card">

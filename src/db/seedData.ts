@@ -63,6 +63,12 @@ export function createInitialSettings(): AppSettings {
     theme: 'dark',
     timezone: BANGKOK_TIMEZONE,
     aiProviderId: 'free_builtin',
+    notificationsEnabled: true,
+    notificationTimes: {
+      morning: '08:00',
+      noon: '12:00',
+      evening: '17:00',
+    },
     updatedAt: new Date().toISOString(),
   };
 }

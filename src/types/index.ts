@@ -140,6 +140,12 @@ export interface ScanLog {
   createdAt: string;
 }
 
+export interface NotificationScheduleTimes {
+  morning: string; // e.g. '08:00'
+  noon: string;    // e.g. '12:00'
+  evening: string; // e.g. '17:00'
+}
+
 export interface AppSettings {
   id: string;
   theme: ThemeMode;
@@ -152,6 +158,8 @@ export interface AppSettings {
   githubToken?: string;
   githubRepo?: string;
   githubBranch?: string;
+  notificationsEnabled?: boolean;
+  notificationTimes?: NotificationScheduleTimes;
   updatedAt: string;
 }
 
