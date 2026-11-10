@@ -32,6 +32,7 @@ import { getFoodAnalysisProvider } from '../services/aiProvider';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { ShareSummaryModal } from './ShareSummaryModal';
 import { AddCustomFoodModal } from './AddCustomFoodModal';
+import { triggerRandomFoodReminder } from '../services/notificationService';
 import {
   addActivityLogEntry,
   addCatalogFoodToMeal,
@@ -58,6 +59,7 @@ import {
   Mic,
   MicOff,
   ScanBarcode,
+  BellRing,
   Share2,
   AlertTriangle,
   Loader2,
@@ -1092,6 +1094,33 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
                 className="text-xs font-medium text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] px-3 py-1 rounded-full transition-colors"
               >
                 {showWorkoutForm ? 'Close' : '+ Log'}
+              </button>
+            </div>
+
+            {/* Row 4: Food Reminder Notification Quick Test */}
+            <div className="flex items-center justify-between py-3 group -mx-2 px-2 rounded-xl border-t border-[#E9EAF2]/60">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-[#EFEDFF] text-[#6258F5] flex items-center justify-center shrink-0 shadow-2xs">
+                  <BellRing className="w-4 h-4 text-[#6258F5]" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-[#20243A]">
+                    แจ้งเตือนบันทึกอาหาร
+                  </span>
+                  <span className="text-[11px] text-[#858BA0]">
+                    08:00, 12:00, 17:00 (สุ่ม 50 มุก Gen Z)
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerRandomFoodReminder('any');
+                }}
+                className="text-xs font-semibold text-white bg-[#6258F5] hover:bg-[#756BFF] px-3.5 py-1.5 rounded-full transition-all shadow-xs active:scale-95 flex items-center gap-1 cursor-pointer"
+                title="ทดสอบยิงแจ้งเตือนทันที"
+              >
+                <span>⚡ สุ่มยิงโนติ</span>
               </button>
             </div>
           </div>

@@ -19,7 +19,10 @@ import { FoodDiary } from './components/FoodDiary';
 import { ProgressScreen } from './components/ProgressScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { InAppNotificationBanner } from './components/InAppNotificationBanner';
-import { startNotificationScheduler } from './services/notificationService';
+import {
+  startNotificationScheduler,
+  triggerRandomFoodReminder,
+} from './services/notificationService';
 import {
   LayoutDashboard,
   Camera,
@@ -33,6 +36,7 @@ import {
   Sun,
   Moon,
   CloudMoon,
+  BellRing,
 } from 'lucide-react';
 
 type ActiveTab = 'dashboard' | 'diary' | 'scanner' | 'confirm' | 'progress' | 'settings';
@@ -402,6 +406,20 @@ export const App: React.FC = () => {
                   <span className="hidden sm:inline">Offline</span>
                 </span>
               )}
+
+              {/* Quick Notification Bell Test Button */}
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerRandomFoodReminder('any');
+                }}
+                title="ทดสอบยิงแจ้งเตือนทันที (Test Gen Z Food Reminder)"
+                aria-label="ทดสอบแจ้งเตือนอาหาร"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-[#E9EAF2] hover:border-[#6258F5] text-[#20243A] hover:text-[#6258F5] transition-all cursor-pointer shadow-2xs active:scale-95"
+              >
+                <BellRing className="w-3.5 h-3.5 text-[#6258F5] animate-pulse" />
+                <span className="text-[11px] font-bold text-[#6258F5]">ทดสอบโนติ</span>
+              </button>
 
               {/* 3-Mode Theme Switcher Button in Header */}
               <button
