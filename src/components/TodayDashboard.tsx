@@ -33,6 +33,7 @@ import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { ShareSummaryModal } from './ShareSummaryModal';
 import { AddCustomFoodModal } from './AddCustomFoodModal';
 import { triggerRandomFoodReminder } from '../services/notificationService';
+import { downloadFoodReminderIcs } from '../utils/calendarReminder';
 import {
   addActivityLogEntry,
   addCatalogFoodToMeal,
@@ -1098,7 +1099,7 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
             </div>
 
             {/* Row 4: Food Reminder Notification Quick Test */}
-            <div className="flex items-center justify-between py-3 group -mx-2 px-2 rounded-xl border-t border-[#E9EAF2]/60">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 py-3 group -mx-2 px-2 rounded-xl border-t border-[#E9EAF2]/60">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-[#EFEDFF] text-[#6258F5] flex items-center justify-center shrink-0 shadow-2xs">
                   <BellRing className="w-4 h-4 text-[#6258F5]" />
@@ -1112,16 +1113,26 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  await triggerRandomFoodReminder('any');
-                }}
-                className="text-xs font-semibold text-white bg-[#6258F5] hover:bg-[#756BFF] px-3.5 py-1.5 rounded-full transition-all shadow-xs active:scale-95 flex items-center gap-1 cursor-pointer"
-                title="ทดสอบยิงแจ้งเตือนทันที"
-              >
-                <span>⚡ สุ่มยิงโนติ</span>
-              </button>
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                <button
+                  type="button"
+                  onClick={downloadFoodReminderIcs}
+                  className="text-xs font-semibold text-[#6258F5] bg-[#EFEDFF] hover:bg-[#E2DFFF] px-3 py-1.5 rounded-full transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
+                  title="ซิงค์เวลาเตือนเข้าปฏิทินมือถือ iPhone/Android (เด้ง 100%)"
+                >
+                  <span>📅 ซิงค์ปฏิทินมือถือ</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerRandomFoodReminder('any');
+                  }}
+                  className="text-xs font-semibold text-white bg-[#6258F5] hover:bg-[#756BFF] px-3.5 py-1.5 rounded-full transition-all shadow-xs active:scale-95 flex items-center gap-1 cursor-pointer"
+                  title="ทดสอบยิงแจ้งเตือนทันที"
+                >
+                  <span>⚡ สุ่มยิงโนติ</span>
+                </button>
+              </div>
             </div>
           </div>
 

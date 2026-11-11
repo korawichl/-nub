@@ -169,6 +169,8 @@ export function getNotificationDiagnostic(): NotificationDiagnostic {
   };
 }
 
+let sharedAudioCtx: AudioContext | null = null;
+
 /**
  * Play an audible chime sound using Web Audio API synthesized tones
  * Works offline, zero external audio asset dependencies.
@@ -178,7 +180,15 @@ export function playNotificationSound(): void {
     if (typeof window === 'undefined') return;
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioCtx();
+    }
+    const ctx = sharedAudioCtx;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
     const now = ctx.currentTime;
 
     // First chime tone: E5 (659.25 Hz)
@@ -186,24 +196,24 @@ export function playNotificationSound(): void {
     const gain1 = ctx.createGain();
     osc1.type = 'sine';
     osc1.frequency.setValueAtTime(659.25, now);
-    gain1.gain.setValueAtTime(0.12, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    gain1.gain.setValueAtTime(0.18, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
     osc1.connect(gain1);
     gain1.connect(ctx.destination);
     osc1.start(now);
-    osc1.stop(now + 0.22);
+    osc1.stop(now + 0.25);
 
     // Second chime tone: A5 (880 Hz) - cheerful ding-dong
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
     osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(880, now + 0.1);
-    gain2.gain.setValueAtTime(0.18, now + 0.1);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+    osc2.frequency.setValueAtTime(880, now + 0.12);
+    gain2.gain.setValueAtTime(0.24, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.48);
     osc2.connect(gain2);
     gain2.connect(ctx.destination);
-    osc2.start(now + 0.1);
-    osc2.stop(now + 0.42);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.48);
   } catch {
     // Audio context may require user interaction first
   }

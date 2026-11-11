@@ -16,6 +16,10 @@ import {
   type ReminderSlot,
 } from '../services/notificationService';
 import {
+  downloadFoodReminderIcs,
+  getGoogleCalendarUrl,
+} from '../utils/calendarReminder';
+import {
   Bell,
   BellRing,
   Sparkles,
@@ -28,6 +32,9 @@ import {
   Play,
   RotateCcw,
   Smartphone,
+  Calendar,
+  Download,
+  ExternalLink,
 } from 'lucide-react';
 
 interface NotificationSettingsCardProps {
@@ -228,6 +235,71 @@ export const NotificationSettingsCard: React.FC<NotificationSettingsCardProps> =
           </div>
         </div>
       )}
+
+      {/* 100% Guaranteed Phone Calendar Sync Solution */}
+      <div className="p-4 rounded-2xl bg-gradient-to-br from-[#17213D] to-[#202E54] text-white space-y-3 shadow-md border border-[#3A4A7A]">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#6258F5] text-white flex items-center justify-center shrink-0 shadow-md shadow-[#6258F5]/30 mt-0.5">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-bold text-white">
+                  📅 ซิงค์เข้าปฏิทินมือถือ (เตือนชัวร์ 100% บนมือถือทุกเครื่อง)
+                </span>
+                <span className="text-[10px] font-bold text-white bg-[#27AE82] px-2 py-0.5 rounded-full">
+                  แนะนำที่สุด
+                </span>
+              </div>
+              <p className="text-xs text-[#CBD5E1] mt-1 leading-relaxed">
+                เนื่องจากเบราว์เซอร์บนมือถือ (โดยเฉพาะ iPhone หรือเปิดใน LINE) มักจะปิดกั้นการแจ้งเตือนเมื่อล็อกหน้าจอหรือปิดแอป การเพิ่มลงในปฏิทินของโทรศัพท์ (Apple Calendar / Google Calendar) จะทำให้<strong>มีเสียงเตือน สั่น และเด้งขึ้นหน้าจอล็อกทุกวันเวลา 8:00, 12:00, 17:00 น. แน่นอน 100%!</strong>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
+          <button
+            type="button"
+            onClick={downloadFoodReminderIcs}
+            className="btn btn-primary btn-sm flex items-center gap-1.5 bg-[#6258F5] hover:bg-[#756BFF] text-white py-2 px-3.5 rounded-xl shadow-md cursor-pointer"
+          >
+            <Download size={14} />
+            <span>📥 โหลดไฟล์เตือนปฏิทิน iPhone / Android (.ics)</span>
+          </button>
+
+          <a
+            href={getGoogleCalendarUrl('morning')}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center gap-1.5 transition-all"
+          >
+            <ExternalLink size={12} />
+            <span>Google Cal: เช้า 8:00</span>
+          </a>
+
+          <a
+            href={getGoogleCalendarUrl('noon')}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center gap-1.5 transition-all"
+          >
+            <ExternalLink size={12} />
+            <span>Google Cal: เที่ยง 12:00</span>
+          </a>
+
+          <a
+            href={getGoogleCalendarUrl('evening')}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center gap-1.5 transition-all"
+          >
+            <ExternalLink size={12} />
+            <span>Google Cal: เย็น 17:00</span>
+          </a>
+        </div>
+      </div>
 
       {/* Permission Status Alert */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F6F7FB] border border-[#E9EAF2]">
